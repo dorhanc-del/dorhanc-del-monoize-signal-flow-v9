@@ -5,6 +5,10 @@ const catalogStore=()=>getStore('monoize-catalog');
 const assignmentStore=()=>getStore('monoize-assignments');
 const submissionStore=()=>getStore('monoize-results');
 const imageStore=()=>getStore('monoize-images');
+const attemptsStore=()=>getStore('monoize-attempts');
+const gradingDefaults={mode:'assessment',maxAttempts:2,penalty:10,feedback:'general',showScore:true,lockAfter:true};
+const gradingFor=a=>{const r={...gradingDefaults,...(a.grading||{})};r.mode=r.mode==='practice'?'practice':'assessment';r.maxAttempts=[1,2,3,5].includes(Number(r.maxAttempts))?Number(r.maxAttempts):2;r.penalty=[0,5,10,15,20,25].includes(Number(r.penalty))?Number(r.penalty):10;r.feedback=['general','hints','detailed'].includes(r.feedback)?r.feedback:'general';r.showScore=!!r.showScore;r.lockAfter=!!r.lockAfter;return r};
+const aliasKey=(id,alias)=>'a_'+createHmac('sha256',process.env.MONOIZE_SESSION_SECRET||'monoize').update(id+'|'+alias.trim().toLowerCase()).digest('hex');
 const JSON_HEADERS={'content-type':'application/json; charset=utf-8','cache-control':'no-store'};
 const resp=(body,status=200,headers={})=>new Response(JSON.stringify(body),{status,headers:{...JSON_HEADERS,...headers}});
 const error=(message,status=400)=>resp({error:message},status);
@@ -35,7 +39,7 @@ const baseCables=[
  {id:'HYBRID',name:'1/8-inch TRS to stereo 1/4-inch',image:'/images/hybrid-cable-card.png',color:'#ecdf75'},
  {id:'RCA',name:'RCA Cable',image:'/images/rca-cable-card.png',color:'#ff8c9c'}
 ];
-const defaultAssignment={id:'demo',title:'Voice → Mic → Interface → Mixer → PA',instructions:'Build a complete signal chain. Select each gold output and blue input, then choose the correct cable. Click Check when finished.',published:true,allowed:['voice','mic','interface','mixer','speaker'],cables:baseCables.map(x=>x.id),nodes:[{id:'n1',type:'voice',x:20,y:50},{id:'n2',type:'mic',x:205,y:50},{id:'n3',type:'interface',x:390,y:50},{id:'n4',type:'mixer',x:575,y:50},{id:'n5',type:'speaker',x:760,y:250}],key:[{from:'n1',fi:0,to:'n2',ti:0,cable:'ACOUSTIC'},{from:'n2',fi:0,to:'n3',ti:0,cable:'XLR'},{from:'n3',fi:0,to:'n4',ti:2,cable:'TRS'},{from:'n4',fi:0,to:'n5',ti:0,cable:'TRS'}]};
+const defaultAssignment={grading:gradingDefaults,id:'demo',title:'Voice → Mic → Interface → Mixer → PA',instructions:'Build a complete signal chain. Select each gold output and blue input, then choose the correct cable. Click Check when finished.',published:true,allowed:['voice','mic','interface','mixer','speaker'],cables:baseCables.map(x=>x.id),nodes:[{id:'n1',type:'voice',x:20,y:50},{id:'n2',type:'mic',x:205,y:50},{id:'n3',type:'interface',x:390,y:50},{id:'n4',type:'mixer',x:575,y:50},{id:'n5',type:'speaker',x:760,y:250}],key:[{from:'n1',fi:0,to:'n2',ti:0,cable:'ACOUSTIC'},{from:'n2',fi:0,to:'n3',ti:0,cable:'XLR'},{from:'n3',fi:0,to:'n4',ti:2,cable:'TRS'},{from:'n4',fi:0,to:'n5',ti:0,cable:'TRS'}]};
 const normalizeCatalog=(saved)=>Array.isArray(saved)?saved:baseCatalog;
 const normalizeCables=(saved)=>Array.isArray(saved)?saved:baseCables;
 async function loadCatalog(){return {gear:normalizeCatalog(await catalogStore().get('gear',{type:'json'})),cables:normalizeCables(await catalogStore().get('cables',{type:'json'}))}}
@@ -46,7 +50,8 @@ function authToken(){let t=Math.floor(Date.now()/1000)+8*3600;let value=String(t
 function teacherAuth(req){const token=(req.headers.get('cookie')||'').match(/(?:^|;\s*)monoize_teacher=([^;]+)/)?.[1]||'';const [expiry,sig]=token.split('.');if(!expiry||!sig||!sessionSecret()||!/^[0-9]+$/.test(expiry)||+expiry<Math.floor(Date.now()/1000))return false;const expected=createHmac('sha256',sessionSecret()).update(expiry).digest('hex');return sig.length===expected.length&&timingSafeEqual(Buffer.from(sig),Buffer.from(expected))}
 const canon=(l)=>`${l.from}|${l.fi}|${l.to}|${l.ti}|${l.cable}`;
 function checkEdges(a,edges,catalog){const nodes=new Map((a.nodes||[]).map(n=>[n.id,n]));const gear=new Map(catalog.gear.map(x=>[x.id,x]));const cables=new Set(catalog.cables.map(x=>x.id));if(!Array.isArray(edges)||edges.length>100)return false;let outputs=new Set(),inputs=new Set();for(const e of edges){const f=nodes.get(e.from),t=nodes.get(e.to);if(!f||!t||f.id===t.id||!cables.has(e.cable))return false;const fs=gear.get(f.type),ts=gear.get(t.type);if(!fs||!ts)return false;const out=fs.outputs[e.fi],inn=ts.inputs[e.ti];if(!out||!inn||!out.types.includes(e.cable)||!inn.types.includes(e.cable))return false;const ip=`${e.to}:${e.ti}`,op=`${e.from}:${e.fi}`;if(inputs.has(ip)||outputs.has(op))return false;inputs.add(ip);outputs.add(op)}return true}
-const sanitizeAssignment=a=>({id:a.id,title:a.title,instructions:a.instructions,published:!!a.published,allowed:a.allowed,cables:a.cables,nodes:a.nodes});
+const sanitizeAssignment=a=>({id:a.id,title:a.title,instructions:a.instructions,published:!!a.published,allowed:a.allowed,cables:a.cables,nodes:a.nodes,grading:gradingFor(a)});
+const validAlias=alias=>typeof alias==='string'&&alias.length>=2&&alias.length<=40&&/^[\p{L}\p{N} _.-]+$/u.test(alias);
 const allowedOrigin=(req)=>new URL(req.url).origin;
 export default async function handler(req){
  try{
@@ -70,16 +75,34 @@ export default async function handler(req){
    const a=await getAssignment(id);if(!a||!a.published)return error('Assignment unavailable',404);
    const c=await loadCatalog();return resp({assignment:sanitizeAssignment(a),gear:c.gear.filter(g=>a.allowed.includes(g.id)),cables:c.cables.filter(g=>a.cables.includes(g.id))});
   }
+  if(path==='attempt-status'){
+   const u=new URL(req.url),id=u.searchParams.get('id')||'',alias=u.searchParams.get('alias')||'';
+   if(!/^[a-zA-Z0-9_-]{1,60}$/.test(id)||!validAlias(alias))return error('Enter a valid classroom alias');
+   const a=await getAssignment(id);if(!a||!a.published)return error('Assignment unavailable',404);
+   const g=gradingFor(a);const prior=await attemptsStore().get(aliasKey(id,alias),{type:'json'})||{count:0,locked:false};
+   return resp({count:prior.count,locked:!!prior.locked,remaining:g.mode==='practice'?null:Math.max(0,g.maxAttempts-prior.count),grading:g});
+  }
   if(path==='submit'){
    if(req.method!=='POST')return error('Method not allowed',405);
    const {id,edges,alias}=await jsonSize(req);const a=await getAssignment(String(id||''));if(!a||!a.published)return error('Assignment unavailable',404);
-   if(typeof alias!=='string'||alias.length<2||alias.length>40||!/^[\p{L}\p{N} _.-]+$/u.test(alias))return error('Enter a short classroom alias (not a full name)');
+   if(!validAlias(alias))return error('Enter a short classroom alias (not a full name)');
    const catalog=await loadCatalog();if(!checkEdges(a,edges,catalog))return error('Connections contain an invalid port, cable, or duplicate');
+   const g=gradingFor(a),key=aliasKey(a.id,alias),prev=await attemptsStore().get(key,{type:'json'})||{count:0,locked:false};
+   if(g.mode==='assessment'&&(prev.locked||prev.count>=g.maxAttempts))return error('No graded attempts remaining. Ask your teacher for help.',403);
    const expected=new Set(a.key.map(canon)),actual=new Set(edges.map(canon));const correct=[...actual].filter(k=>expected.has(k)).length;
-   const score=expected.size?Math.round(100*correct/expected.size):0;
-   const record={id:randomUUID(),assignment:a.id,title:a.title,alias:alias.trim(),score,correct,total:expected.size,submittedAt:new Date().toISOString()};
+   const rawScore=expected.size?Math.round(100*correct/expected.size):0;
+   const score=g.mode==='practice'?rawScore:Math.max(0,rawScore-prev.count*g.penalty);
+   const count=prev.count+1,complete=correct===expected.size&&actual.size===expected.size;
+   const locked=g.mode==='assessment'&&g.lockAfter&&count>=g.maxAttempts;
+   const record={id:randomUUID(),assignment:a.id,title:a.title,alias:alias.trim(),score,rawScore,penaltyApplied:g.mode==='practice'?0:prev.count*g.penalty,attempt:count,mode:g.mode,complete,correct,total:expected.size,submittedAt:new Date().toISOString()};
+   await attemptsStore().setJSON(key,{count,locked,lastScore:score,updatedAt:record.submittedAt});
    await submissionStore().setJSON('r_'+record.id,record);
-   return resp({score,correct,total:expected.size,submittedAt:record.submittedAt,receipt:record.id.slice(0,8)});
+   const remaining=g.mode==='practice'?null:Math.max(0,g.maxAttempts-count);
+   const general=complete?'All required connections are correct.':'Some connections need work. Review your full signal path.';
+   let hint=general;
+   if(g.feedback==='hints'&&!complete)hint+=` You have ${Math.max(0,expected.size-correct)} missing or incorrect required connection(s).`;
+   if(g.feedback==='detailed'&&!complete)hint+=` ${[...actual].filter(x=>!expected.has(x)).length} submitted wire(s) do not match the answer key.`;
+   return resp({score:g.showScore?score:null,rawScore:g.showScore?rawScore:null,penaltyApplied:g.showScore?record.penaltyApplied:null,correct:g.feedback==='detailed'?correct:null,total:g.feedback==='detailed'?expected.size:null,attempt:count,remaining,locked,complete,feedback:hint,submittedAt:record.submittedAt,receipt:record.id.slice(0,8)});
   }
   if(!teacherAuth(req))return error('Teacher login required',401);
   if(path==='catalog')return resp(await loadCatalog());
@@ -115,7 +138,7 @@ export default async function handler(req){
    if(!Array.isArray(a.allowed)||a.allowed.length>50||a.allowed.some(x=>!gear.has(x))||!Array.isArray(a.cables)||a.cables.some(x=>!cables.has(x)))return error('Invalid equipment or cable list');
    if(!Array.isArray(a.nodes)||a.nodes.length>45||a.nodes.some(x=>!a.allowed.includes(x.type)||!/^[a-zA-Z0-9_-]{1,60}$/.test(x.id)||!Number.isFinite(x.x)||!Number.isFinite(x.y)))return error('Invalid nodes');
    if(!checkEdges(a,a.key,c))return error('Answer key has an incompatible port/cable');
-   a.published=!!a.published;a.updatedAt=new Date().toISOString();await assignmentStore().setJSON('item_'+a.id,a);
+   a.grading=gradingFor(a);a.published=!!a.published;a.updatedAt=new Date().toISOString();await assignmentStore().setJSON('item_'+a.id,a);
    const index=await assignmentStore().get('index',{type:'json'})||[];const i=index.findIndex(x=>x.id===a.id);const entry={id:a.id,title:a.title,published:a.published,updatedAt:a.updatedAt};if(i>=0)index[i]=entry;else index.push(entry);await assignmentStore().setJSON('index',index);
    return resp({ok:true,id:a.id});
   }

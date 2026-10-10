@@ -64,3 +64,7 @@ You may need `npx netlify login`/`npx netlify link` to connect local development
 - `package.json`: Netlify Blobs dependency
 
 This package has been syntax/asset checked, but *live Netlify deployment, image uploads, and Mac/Chromebook browser interaction are not yet verified*. Use a trial assignment before teaching with it.
+
+
+## V9.1 grading rules
+Teacher Studio now has Practice / Assessment mode, graded submission limit, per-prior-submission point penalty, feedback detail, score visibility, and lock-after-final-attempt controls. Defaults: Assessment / 2 submissions / -10 points for the second / general feedback / show score / lock after final. The grading API stores counters in Netlify Blobs keyed by assignment and classroom alias. Note: aliases are self-declared and can be changed, so this is not tamper-proof student identity. For high-stakes use integrate verified student identity, and consider transactional storage for concurrent submissions. Previous submissions are retained in results. Existing projects require a Git commit and redeploy.
