@@ -72,3 +72,21 @@ Teacher Studio now has Practice / Assessment mode, graded submission limit, per-
 
 ## V9.2 student identification
 Student entry now requires a first name and one class period from 6A, 7A, 8A, or 8B. Attempt limits use assignment + first name + class period. Two students sharing a first name in one class collide; students can evade attempts by changing input. No verified authentication is provided. Previously recorded aliases remain readable in Results as Legacy records. Update requires uploading changed repository files and deploying, not merely uploading this ZIP to Netlify Drop. Use test names until district data policy is confirmed.
+
+
+## V9.4 port tooltips
+Blue input and gold output ports now show a high-contrast tooltip beside the port on hover and keyboard focus, with the port name and supported cable types. This replaces Chrome's unreliable native title tooltip. No changes to your saved assignments or Netlify environment variables are required.
+
+
+## V9.5 — audio port audit and combo-input corrections
+
+- Built-in generic audio-interface combo input 1 and 2 now accept XLR (mic), 1/4-inch TRS (line), and 1/4-inch TS (instrument).
+- RØDECaster Pro II now has four modeled XLR/TRS/TS combo inputs, plus USB and TRS outputs. This models physical inputs without claiming all input configurations are identical.
+- Existing teacher-created items, custom image uploads, and assignments are not reset. A migration updates recognizable built-in legacy combo ports at catalog loading time. Customized port definitions are otherwise preserved.
+- For an existing assignment whose answer key requires a specific TRS wire, editing catalog port compatibility does NOT change the answer key: reopen the assignment and revise the key in Teacher Studio if necessary.
+- Student links and class dropdown (6A, 7A, 8A, 8B) are unchanged. Redeploy through your existing GitHub repository.
+- IMPORTANT: These cards simplify real audio: a stereo left/right pair is generally TWO separate channels/cables; USB audio must be supported by both devices, including host/device roles; 1/4-inch TRS may carry balanced mono or unbalanced stereo depending on the device; wireless receiver images may not reflect actual physical XLR connectors. Never use this lab as a real-world wiring specification without consulting model manuals.
+
+
+## V9.6 dark background
+The visual theme now uses a near-black canvas and charcoal panels. Equipment-image areas remain light for contrast; gold/blue ports and color-coded wires remain unchanged. No connector logic, student grading, or signal-level rules changed. Deploy by replacing project files in your existing GitHub repository and committing.

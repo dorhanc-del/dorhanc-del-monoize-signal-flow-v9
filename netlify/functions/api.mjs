@@ -22,9 +22,9 @@ const baseCatalog=[
  {id:'dj',name:'DJ Source',category:'source',image:'/images/dj-source-card.png',inputs:[],outputs:[{name:'RCA stereo output',types:['RCA']}]},
  {id:'ipad',name:'iPad',category:'source',image:'/images/ipad-card.png',inputs:[],outputs:[{name:'USB-C audio out',types:['USB']}]},
  {id:'adapter',name:'USB-C Audio Adapter',category:'gear',image:'/images/usbc-adapter-card.png',inputs:[{name:'USB-C input',types:['USB']}],outputs:[{name:'3.5mm audio output',types:['HYBRID']}]},
- {id:'interface',name:'Audio Interface',category:'gear',image:'/images/audio-interface.png',inputs:[{name:'Combo input 1',types:['XLR','TS']},{name:'Combo input 2',types:['XLR','TS']}],outputs:[{name:'Stereo line output',types:['TRS']},{name:'USB output',types:['USB']}]},
+ {id:'interface',name:'Audio Interface',category:'gear',image:'/images/audio-interface.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'Stereo line output',types:['TRS']},{name:'USB output',types:['USB']}]},
  {id:'mixer',name:'Audio Mixer',category:'gear',image:'/images/mixer.svg',inputs:[{name:'Mic 1',types:['XLR']},{name:'Mic 2',types:['XLR']},{name:'Line A',types:['TRS','TS','RCA','HYBRID']},{name:'Line B',types:['TRS','TS','RCA','HYBRID']}],outputs:[{name:'Main line output',types:['TRS']}]},
- {id:'rodecaster',name:'RØDECaster Pro II (Mixer / Interface)',category:'gear',image:'/images/rodecaster-pro-ii.png',inputs:[{name:'Combo input 1',types:['XLR','TS']},{name:'Combo input 2',types:['XLR','TS']},{name:'Line input',types:['TRS']}],outputs:[{name:'USB audio interface out',types:['USB']},{name:'Main TRS output',types:['TRS']}]},
+ {id:'rodecaster',name:'RØDECaster Pro II (Mixer / Interface)',category:'gear',image:'/images/rodecaster-pro-ii.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 3 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 4 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'USB audio interface out',types:['USB']},{name:'Main TRS output',types:['TRS']}]},
  {id:'laptop',name:'Laptop',category:'destination',image:'/images/laptop-card.png',inputs:[{name:'USB input',types:['USB']}],outputs:[]},
  {id:'speaker',name:'PA Speakers',category:'destination',image:'/images/pa-system-card.png',inputs:[{name:'Line input',types:['TRS','RCA']}],outputs:[]},
  {id:'monitors',name:'Studio Monitors',category:'destination',image:'/images/studio-monitors-card.png',inputs:[{name:'Line input',types:['TRS','RCA']}],outputs:[]}
@@ -42,7 +42,23 @@ const baseCables=[
 const defaultAssignment={grading:gradingDefaults,id:'demo',title:'Voice → Mic → Interface → Mixer → PA',instructions:'Build a complete signal chain. Select each gold output and blue input, then choose the correct cable. Click Check when finished.',published:true,allowed:['voice','mic','interface','mixer','speaker'],cables:baseCables.map(x=>x.id),nodes:[{id:'n1',type:'voice',x:20,y:50},{id:'n2',type:'mic',x:205,y:50},{id:'n3',type:'interface',x:390,y:50},{id:'n4',type:'mixer',x:575,y:50},{id:'n5',type:'speaker',x:760,y:250}],key:[{from:'n1',fi:0,to:'n2',ti:0,cable:'ACOUSTIC'},{from:'n2',fi:0,to:'n3',ti:0,cable:'XLR'},{from:'n3',fi:0,to:'n4',ti:2,cable:'TRS'},{from:'n4',fi:0,to:'n5',ti:0,cable:'TRS'}]};
 const normalizeCatalog=(saved)=>Array.isArray(saved)?saved:baseCatalog;
 const normalizeCables=(saved)=>Array.isArray(saved)?saved:baseCables;
-async function loadCatalog(){return {gear:normalizeCatalog(await catalogStore().get('gear',{type:'json'})),cables:normalizeCables(await catalogStore().get('cables',{type:'json'}))}}
+// Bring legacy built-in combo-input definitions up to date without resetting user image uploads or custom cards.
+function upgradeLegacyBuiltins(gear){return gear.map(item=>{
+ if(!['interface','rodecaster'].includes(item.id))return item;
+ const next={...item,inputs:(item.inputs||[]).map(p=>({...p,types:[...(p.types||[])]}))};
+ // Only add TRS to recognized stock combo ports. Custom ports stay untouched.
+ next.inputs.forEach(p=>{
+  if(/^Combo input [1-4](?:$|\s|\()/i.test(p.name)&&p.types.includes('XLR')&&p.types.includes('TS')&&!p.types.includes('TRS'))p.types.push('TRS');
+  if(/^Combo input [1-4]$/i.test(p.name))p.name+=' (mic / line / instrument)';
+ });
+ // Four RØDECaster Pro II combo inputs. Migrate the older placeholder third port.
+ if(item.id==='rodecaster'&&next.inputs.length===3&&next.inputs[2].name==='Line input'&&next.inputs[2].types.join(',')==='TRS'){
+   next.inputs[2]={name:'Combo input 3 (mic / line / instrument)',types:['XLR','TRS','TS']};
+   next.inputs.push({name:'Combo input 4 (mic / line / instrument)',types:['XLR','TRS','TS']});
+ }
+ return next;
+})}
+async function loadCatalog(){return {gear:upgradeLegacyBuiltins(normalizeCatalog(await catalogStore().get('gear',{type:'json'}))),cables:normalizeCables(await catalogStore().get('cables',{type:'json'}))}}
 async function getAssignment(id){return id==='demo'?(await assignmentStore().get('item_demo',{type:'json'})||defaultAssignment):await assignmentStore().get('item_'+id,{type:'json'});}
 const jsonSize=async req=>{const s=await req.text();if(s.length>250000)throw new Error('Request too large');return JSON.parse(s)};
 function sessionSecret(){return process.env.MONOIZE_SESSION_SECRET||''}
