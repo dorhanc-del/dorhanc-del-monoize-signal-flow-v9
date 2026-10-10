@@ -1,0 +1,129 @@
+import { getStore } from '@netlify/blobs';
+import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
+
+const catalogStore=()=>getStore('monoize-catalog');
+const assignmentStore=()=>getStore('monoize-assignments');
+const submissionStore=()=>getStore('monoize-results');
+const imageStore=()=>getStore('monoize-images');
+const JSON_HEADERS={'content-type':'application/json; charset=utf-8','cache-control':'no-store'};
+const resp=(body,status=200,headers={})=>new Response(JSON.stringify(body),{status,headers:{...JSON_HEADERS,...headers}});
+const error=(message,status=400)=>resp({error:message},status);
+const baseCatalog=[
+ {id:'voice',name:'Voice',category:'source',image:'/images/voice.svg',inputs:[],outputs:[{name:'Acoustic sound',types:['ACOUSTIC']}]},
+ {id:'mic',name:'Handheld Microphone',category:'source',image:'/images/handheld-mic.svg',inputs:[{name:'Sound in',types:['ACOUSTIC']}],outputs:[{name:'XLR out',types:['XLR']}]},
+ {id:'condenser',name:'Condenser Microphone',category:'source',image:'/images/condenser-mic.png',inputs:[{name:'Sound in',types:['ACOUSTIC']}],outputs:[{name:'XLR out',types:['XLR']}]},
+ {id:'wirelessMic',name:'Wireless Microphone',category:'source',image:'/images/dji-wireless-mic.png',inputs:[{name:'Sound in',types:['ACOUSTIC']}],outputs:[{name:'Wireless transmitter',types:['WIRELESS']}]},
+ {id:'wirelessRx',name:'Wireless Receiver (XLR out)',category:'gear',image:'/images/dji-wireless-receiver.png',inputs:[{name:'Wireless receiver',types:['WIRELESS']}],outputs:[{name:'XLR output',types:['XLR']}]},
+ {id:'guitar',name:'Electric Guitar',category:'source',image:'/images/electric-guitar-card.png',inputs:[],outputs:[{name:'Instrument output',types:['TS']}]},
+ {id:'dj',name:'DJ Source',category:'source',image:'/images/dj-source-card.png',inputs:[],outputs:[{name:'RCA stereo output',types:['RCA']}]},
+ {id:'ipad',name:'iPad',category:'source',image:'/images/ipad-card.png',inputs:[],outputs:[{name:'USB-C audio out',types:['USB']}]},
+ {id:'adapter',name:'USB-C Audio Adapter',category:'gear',image:'/images/usbc-adapter-card.png',inputs:[{name:'USB-C input',types:['USB']}],outputs:[{name:'3.5mm audio output',types:['HYBRID']}]},
+ {id:'interface',name:'Audio Interface',category:'gear',image:'/images/audio-interface.png',inputs:[{name:'Combo input 1',types:['XLR','TS']},{name:'Combo input 2',types:['XLR','TS']}],outputs:[{name:'Stereo line output',types:['TRS']},{name:'USB output',types:['USB']}]},
+ {id:'mixer',name:'Audio Mixer',category:'gear',image:'/images/mixer.svg',inputs:[{name:'Mic 1',types:['XLR']},{name:'Mic 2',types:['XLR']},{name:'Line A',types:['TRS','TS','RCA','HYBRID']},{name:'Line B',types:['TRS','TS','RCA','HYBRID']}],outputs:[{name:'Main line output',types:['TRS']}]},
+ {id:'rodecaster',name:'RØDECaster Pro II (Mixer / Interface)',category:'gear',image:'/images/rodecaster-pro-ii.png',inputs:[{name:'Combo input 1',types:['XLR','TS']},{name:'Combo input 2',types:['XLR','TS']},{name:'Line input',types:['TRS']}],outputs:[{name:'USB audio interface out',types:['USB']},{name:'Main TRS output',types:['TRS']}]},
+ {id:'laptop',name:'Laptop',category:'destination',image:'/images/laptop-card.png',inputs:[{name:'USB input',types:['USB']}],outputs:[]},
+ {id:'speaker',name:'PA Speakers',category:'destination',image:'/images/pa-system-card.png',inputs:[{name:'Line input',types:['TRS','RCA']}],outputs:[]},
+ {id:'monitors',name:'Studio Monitors',category:'destination',image:'/images/studio-monitors-card.png',inputs:[{name:'Line input',types:['TRS','RCA']}],outputs:[]}
+];
+const baseCables=[
+ {id:'ACOUSTIC',name:'Acoustic sound',image:'',color:'#cbd5e1'},
+ {id:'WIRELESS',name:'Wireless link',image:'',color:'#5de0ab'},
+ {id:'XLR',name:'XLR Cable',image:'/images/xlr-cable-card.png',color:'#62d8ef'},
+ {id:'TRS',name:'1/4-inch TRS',image:'/images/trs-cable-card.png',color:'#ffce70'},
+ {id:'TS',name:'1/4-inch TS',image:'/images/ts-cable-card.png',color:'#ffb76c'},
+ {id:'USB',name:'USB Cable',image:'/images/usb-cable-card.png',color:'#c29afc'},
+ {id:'HYBRID',name:'1/8-inch TRS to stereo 1/4-inch',image:'/images/hybrid-cable-card.png',color:'#ecdf75'},
+ {id:'RCA',name:'RCA Cable',image:'/images/rca-cable-card.png',color:'#ff8c9c'}
+];
+const defaultAssignment={id:'demo',title:'Voice → Mic → Interface → Mixer → PA',instructions:'Build a complete signal chain. Select each gold output and blue input, then choose the correct cable. Click Check when finished.',published:true,allowed:['voice','mic','interface','mixer','speaker'],cables:baseCables.map(x=>x.id),nodes:[{id:'n1',type:'voice',x:20,y:50},{id:'n2',type:'mic',x:205,y:50},{id:'n3',type:'interface',x:390,y:50},{id:'n4',type:'mixer',x:575,y:50},{id:'n5',type:'speaker',x:760,y:250}],key:[{from:'n1',fi:0,to:'n2',ti:0,cable:'ACOUSTIC'},{from:'n2',fi:0,to:'n3',ti:0,cable:'XLR'},{from:'n3',fi:0,to:'n4',ti:2,cable:'TRS'},{from:'n4',fi:0,to:'n5',ti:0,cable:'TRS'}]};
+const normalizeCatalog=(saved)=>Array.isArray(saved)?saved:baseCatalog;
+const normalizeCables=(saved)=>Array.isArray(saved)?saved:baseCables;
+async function loadCatalog(){return {gear:normalizeCatalog(await catalogStore().get('gear',{type:'json'})),cables:normalizeCables(await catalogStore().get('cables',{type:'json'}))}}
+async function getAssignment(id){return id==='demo'?(await assignmentStore().get('item_demo',{type:'json'})||defaultAssignment):await assignmentStore().get('item_'+id,{type:'json'});}
+const jsonSize=async req=>{const s=await req.text();if(s.length>250000)throw new Error('Request too large');return JSON.parse(s)};
+function sessionSecret(){return process.env.MONOIZE_SESSION_SECRET||''}
+function authToken(){let t=Math.floor(Date.now()/1000)+8*3600;let value=String(t);return value+'.'+createHmac('sha256',sessionSecret()).update(value).digest('hex')}
+function teacherAuth(req){const token=(req.headers.get('cookie')||'').match(/(?:^|;\s*)monoize_teacher=([^;]+)/)?.[1]||'';const [expiry,sig]=token.split('.');if(!expiry||!sig||!sessionSecret()||!/^[0-9]+$/.test(expiry)||+expiry<Math.floor(Date.now()/1000))return false;const expected=createHmac('sha256',sessionSecret()).update(expiry).digest('hex');return sig.length===expected.length&&timingSafeEqual(Buffer.from(sig),Buffer.from(expected))}
+const canon=(l)=>`${l.from}|${l.fi}|${l.to}|${l.ti}|${l.cable}`;
+function checkEdges(a,edges,catalog){const nodes=new Map((a.nodes||[]).map(n=>[n.id,n]));const gear=new Map(catalog.gear.map(x=>[x.id,x]));const cables=new Set(catalog.cables.map(x=>x.id));if(!Array.isArray(edges)||edges.length>100)return false;let outputs=new Set(),inputs=new Set();for(const e of edges){const f=nodes.get(e.from),t=nodes.get(e.to);if(!f||!t||f.id===t.id||!cables.has(e.cable))return false;const fs=gear.get(f.type),ts=gear.get(t.type);if(!fs||!ts)return false;const out=fs.outputs[e.fi],inn=ts.inputs[e.ti];if(!out||!inn||!out.types.includes(e.cable)||!inn.types.includes(e.cable))return false;const ip=`${e.to}:${e.ti}`,op=`${e.from}:${e.fi}`;if(inputs.has(ip)||outputs.has(op))return false;inputs.add(ip);outputs.add(op)}return true}
+const sanitizeAssignment=a=>({id:a.id,title:a.title,instructions:a.instructions,published:!!a.published,allowed:a.allowed,cables:a.cables,nodes:a.nodes});
+const allowedOrigin=(req)=>new URL(req.url).origin;
+export default async function handler(req){
+ try{
+  const path=new URL(req.url).pathname.replace(/^\/(?:\.netlify\/functions\/api|api)\/?/,'').split('/')[0]||'';
+  if(path==='status')return resp({ok:true,configured:!!(process.env.MONOIZE_TEACHER_PASSWORD&&sessionSecret())});
+  if(path==='login'){
+   if(req.method!=='POST')return error('Method not allowed',405);
+   if(!process.env.MONOIZE_TEACHER_PASSWORD||!sessionSecret())return error('Teacher credentials not configured on Netlify',503);
+   const {password}=await jsonSize(req);const p=Buffer.from(String(password||'')),expected=Buffer.from(process.env.MONOIZE_TEACHER_PASSWORD);if(p.length!==expected.length||!timingSafeEqual(p,expected))return error('Incorrect password',401);
+   return resp({ok:true},200,{'set-cookie':`monoize_teacher=${authToken()}; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=28800`});
+  }
+  if(path==='logout')return resp({ok:true},200,{'set-cookie':'monoize_teacher=; HttpOnly; Secure; SameSite=Strict; Path=/api; Max-Age=0'});
+  if(path==='me')return resp({teacher:teacherAuth(req)});
+  if(path==='image'){
+   const id=new URL(req.url).searchParams.get('id');if(!id||!/^[a-z0-9-]{12,80}$/.test(id))return error('Invalid image',400);
+   const found=await imageStore().getWithMetadata('img_'+id,{type:'arrayBuffer'});if(!found)return error('Image not found',404);
+   return new Response(found.data,{headers:{'content-type':found.metadata?.mime||'image/png','cache-control':'public, max-age=86400','x-content-type-options':'nosniff'}});
+  }
+  if(path==='play'){
+   const id=new URL(req.url).searchParams.get('id')||'demo';if(!/^[a-zA-Z0-9_-]{1,60}$/.test(id))return error('Invalid ID');
+   const a=await getAssignment(id);if(!a||!a.published)return error('Assignment unavailable',404);
+   const c=await loadCatalog();return resp({assignment:sanitizeAssignment(a),gear:c.gear.filter(g=>a.allowed.includes(g.id)),cables:c.cables.filter(g=>a.cables.includes(g.id))});
+  }
+  if(path==='submit'){
+   if(req.method!=='POST')return error('Method not allowed',405);
+   const {id,edges,alias}=await jsonSize(req);const a=await getAssignment(String(id||''));if(!a||!a.published)return error('Assignment unavailable',404);
+   if(typeof alias!=='string'||alias.length<2||alias.length>40||!/^[\p{L}\p{N} _.-]+$/u.test(alias))return error('Enter a short classroom alias (not a full name)');
+   const catalog=await loadCatalog();if(!checkEdges(a,edges,catalog))return error('Connections contain an invalid port, cable, or duplicate');
+   const expected=new Set(a.key.map(canon)),actual=new Set(edges.map(canon));const correct=[...actual].filter(k=>expected.has(k)).length;
+   const score=expected.size?Math.round(100*correct/expected.size):0;
+   const record={id:randomUUID(),assignment:a.id,title:a.title,alias:alias.trim(),score,correct,total:expected.size,submittedAt:new Date().toISOString()};
+   await submissionStore().setJSON('r_'+record.id,record);
+   return resp({score,correct,total:expected.size,submittedAt:record.submittedAt,receipt:record.id.slice(0,8)});
+  }
+  if(!teacherAuth(req))return error('Teacher login required',401);
+  if(path==='catalog')return resp(await loadCatalog());
+  if(path==='save-catalog'){
+   if(req.method!=='POST')return error('Method not allowed',405);
+   const d=await jsonSize(req);const cat=await loadCatalog();const type=d.kind==='gear'?'gear':d.kind==='cables'?'cables':null;if(!type)return error('Invalid kind');
+   const item=d.item;if(!item||!/^[a-zA-Z0-9_-]{1,48}$/.test(item.id)||typeof item.name!=='string'||item.name.length>80)return error('Invalid item');
+   if(typeof item.image!=='string'||item.image.length>500||!(item.image.startsWith('/images/')||item.image.startsWith('/api/image?id=')||item.image===''))return error('Invalid image path');
+   if(type==='gear'){
+     item.category=['source','gear','destination'].includes(item.category)?item.category:'gear';
+     for(const arr of [item.inputs,item.outputs]){if(!Array.isArray(arr)||arr.length>8)return error('Invalid ports');for(const port of arr){if(!port||typeof port.name!=='string'||port.name.length>70||!Array.isArray(port.types)||!port.types.length||port.types.some(t=>!cat.cables.some(c=>c.id===t)))return error('Invalid port connection types')}}
+   }else {if(!/^#[a-fA-F0-9]{6}$/.test(item.color))return error('Invalid cable color')}
+   const list=cat[type];const i=list.findIndex(x=>x.id===item.id);if(i>=0)list[i]=item;else list.push(item);await catalogStore().setJSON(type,list);return resp({ok:true,item});
+  }
+  if(path==='upload-image'){
+   if(req.method!=='POST')return error('Method not allowed',405);
+   const form=await req.formData(),file=form.get('file');if(!file||typeof file.arrayBuffer!=='function')return error('Choose a file');if(file.size>2_000_000||file.size<100)return error('Image must be between 100 bytes and 2 MB');
+   const mime=file.type;if(!['image/png','image/jpeg','image/webp','image/gif'].includes(mime))return error('Use PNG, JPG, WEBP, or GIF');
+   const buffer=await file.arrayBuffer();const bytes=new Uint8Array(buffer);const isPng=bytes[0]===137&&bytes[1]===80&&bytes[2]===78&&bytes[3]===71;const isJpg=bytes[0]===255&&bytes[1]===216;const isWebp=String.fromCharCode(...bytes.slice(0,4))==='RIFF'&&String.fromCharCode(...bytes.slice(8,12))==='WEBP';const isGif=String.fromCharCode(...bytes.slice(0,3))==='GIF';
+   if(!(mime==='image/png'&&isPng||mime==='image/jpeg'&&isJpg||mime==='image/webp'&&isWebp||mime==='image/gif'&&isGif))return error('File does not match its image type');
+   const id=randomUUID();await imageStore().set('img_'+id,buffer,{metadata:{mime}});return resp({url:'/api/image?id='+id});
+  }
+  if(path==='assignments'){
+   const index=await assignmentStore().get('index',{type:'json'})||[];return resp({assignments:[{id:'demo',title:defaultAssignment.title,published:true},...index.filter(x=>x.id!=='demo')]});
+  }
+  if(path==='assignment'){
+   const id=new URL(req.url).searchParams.get('id')||'demo';const a=await getAssignment(id);return a?resp({assignment:a}):error('Not found',404);
+  }
+  if(path==='save-assignment'){
+   if(req.method!=='POST')return error('Method not allowed',405);const a=await jsonSize(req);
+   if(!/^[a-zA-Z0-9_-]{1,60}$/.test(a.id||'')||typeof a.title!=='string'||a.title.length<2||a.title.length>100||typeof a.instructions!=='string'||a.instructions.length>1200)return error('Invalid assignment name');
+   const c=await loadCatalog(),gear=new Set(c.gear.map(x=>x.id)),cables=new Set(c.cables.map(x=>x.id));
+   if(!Array.isArray(a.allowed)||a.allowed.length>50||a.allowed.some(x=>!gear.has(x))||!Array.isArray(a.cables)||a.cables.some(x=>!cables.has(x)))return error('Invalid equipment or cable list');
+   if(!Array.isArray(a.nodes)||a.nodes.length>45||a.nodes.some(x=>!a.allowed.includes(x.type)||!/^[a-zA-Z0-9_-]{1,60}$/.test(x.id)||!Number.isFinite(x.x)||!Number.isFinite(x.y)))return error('Invalid nodes');
+   if(!checkEdges(a,a.key,c))return error('Answer key has an incompatible port/cable');
+   a.published=!!a.published;a.updatedAt=new Date().toISOString();await assignmentStore().setJSON('item_'+a.id,a);
+   const index=await assignmentStore().get('index',{type:'json'})||[];const i=index.findIndex(x=>x.id===a.id);const entry={id:a.id,title:a.title,published:a.published,updatedAt:a.updatedAt};if(i>=0)index[i]=entry;else index.push(entry);await assignmentStore().setJSON('index',index);
+   return resp({ok:true,id:a.id});
+  }
+  if(path==='results'){
+   const pages=[];let cursor;do{const batch=await submissionStore().list({prefix:'r_',cursor});pages.push(...batch.blobs);cursor=batch.cursor}while(cursor&&pages.length<1000);
+   const newest=pages.slice(0,300);const rows=(await Promise.all(newest.map(x=>submissionStore().get(x.key,{type:'json'})))).filter(Boolean);
+   rows.sort((a,b)=>b.submittedAt.localeCompare(a.submittedAt));return resp({results:rows});
+  }
+  return error('Unknown operation',404);
+ }catch(e){console.error('Monoize V9 API:',e);return error('Server error: '+(e.message==='Request too large'?'Request too large':'Check deployment configuration or input'),500)}
+}

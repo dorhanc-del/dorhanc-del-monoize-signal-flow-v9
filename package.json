@@ -1,0 +1,1 @@
+{"name":"monoize-signal-flow-v9","version":"9.0.0","private":true,"type":"module","scripts":{"start":"netlify dev"},"dependencies":{"@netlify/blobs":"^10.0.0"},"devDependencies":{"netlify-cli":"^23.0.0"}}
