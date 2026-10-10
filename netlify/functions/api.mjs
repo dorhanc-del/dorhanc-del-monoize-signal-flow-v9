@@ -92,6 +92,32 @@ function diagnoseEdges(a,edges,catalog){
  }
  return null;
 }
+// Match student canvas nodes to assignment device slots by equipment type.
+// This is necessary when a student removes a card and adds it back: the UI assigns a new node ID.
+// Prefer exact saved IDs, then pair remaining instances of the same equipment type.
+function matchStudentCanvas(a,submittedNodes,edges){
+ if(!Array.isArray(submittedNodes)||submittedNodes.length>45||submittedNodes.length===0)return {error:'Reload the assignment: the student canvas was not sent.'};
+ if(!Array.isArray(a.nodes)||a.nodes.length===0)return {error:'This assignment has no saved equipment layout. Ask your teacher to add devices and save again.'};
+ const wanted=new Map();for(const n of a.nodes)wanted.set(n.type,(wanted.get(n.type)||0)+1);
+ const actual=new Map();const ids=new Set();
+ for(const n of submittedNodes){
+  if(!n||typeof n.id!=='string'||typeof n.type!=='string'||ids.has(n.id)||!/^[a-zA-Z0-9_-]{1,60}$/.test(n.id))return {error:'Duplicate or invalid equipment IDs on the canvas. Reload the assignment.'};
+  ids.add(n.id);actual.set(n.type,(actual.get(n.type)||0)+1);
+  if(!a.allowed.includes(n.type))return {error:'Your canvas contains a device that is not allowed for this assignment.'};
+ }
+ // The number of devices must agree with the teacher's assignment; this prevents a replacement device from getting free credit.
+ if(submittedNodes.length!==a.nodes.length||[...wanted].some(([type,count])=>actual.get(type)!==count))return {error:'Your equipment does not match the assignment. Reset the layout and use the required device cards.'};
+ const assigned=new Set(),mapping=new Map(),studentById=new Map(submittedNodes.map(n=>[n.id,n]));
+ for(const n of submittedNodes){const original=a.nodes.find(t=>t.id===n.id&&t.type===n.type);if(original){mapping.set(n.id,original.id);assigned.add(original.id)}}
+ for(const n of submittedNodes){if(mapping.has(n.id))continue;const slot=a.nodes.find(t=>t.type===n.type&&!assigned.has(t.id));if(!slot)return {error:'Unable to match a device to the answer key.'};mapping.set(n.id,slot.id);assigned.add(slot.id)}
+ const mapped=[];
+ for(const e of edges){
+  if(!e||!studentById.has(e.from)||!studentById.has(e.to))return {error:'A connection points to a removed device. Remove the wire or reset the layout.'};
+  mapped.push({...e,from:mapping.get(e.from),to:mapping.get(e.to)});
+ }
+ return {edges:mapped};
+}
+
 function checkEdges(a,edges,catalog){return diagnoseEdges(a,edges,catalog)===null;}
 
 const sanitizeAssignment=a=>({id:a.id,title:a.title,instructions:a.instructions,published:!!a.published,allowed:a.allowed,cables:a.cables,nodes:a.nodes,grading:gradingFor(a)});
@@ -129,12 +155,12 @@ export default async function handler(req){
   }
   if(path==='submit'){
    if(req.method!=='POST')return error('Method not allowed',405);
-   const {id,edges,firstName,classPeriod}=await jsonSize(req);const a=await getAssignment(String(id||''));if(!a||!a.published)return error('Assignment unavailable',404);
+   const {id,edges,nodes,firstName,classPeriod}=await jsonSize(req);const a=await getAssignment(String(id||''));if(!a||!a.published)return error('Assignment unavailable',404);
    if(!validStudent(firstName,classPeriod))return error('Enter your first name and select a class period');
-   const catalog=await loadCatalog();const issue=diagnoseEdges(a,edges,catalog);if(issue)return error(issue+' No attempt was used.',400);
+   const catalog=await loadCatalog();if(!Array.isArray(edges))return error('No valid connection list received. No attempt was used.',400);const mapped=matchStudentCanvas(a,nodes,edges);if(mapped.error)return error(mapped.error+' No attempt was used.',400);const gradedEdges=mapped.edges;const issue=diagnoseEdges(a,gradedEdges,catalog);if(issue)return error(issue+' No attempt was used.',400);
    const g=gradingFor(a),key=studentKey(a.id,firstName,classPeriod),prev=await attemptsStore().get(key,{type:'json'})||{count:0,locked:false};
    if(g.mode==='assessment'&&(prev.locked||prev.count>=g.maxAttempts))return error('No graded attempts remaining. Ask your teacher for help.',403);
-   const expected=new Set(a.key.map(canon)),actual=new Set(edges.map(canon));const correct=[...actual].filter(k=>expected.has(k)).length;
+   const expected=new Set(a.key.map(canon)),actual=new Set(gradedEdges.map(canon));const correct=[...actual].filter(k=>expected.has(k)).length;
    const rawScore=expected.size?Math.round(100*correct/expected.size):0;
    const score=g.mode==='practice'?rawScore:Math.max(0,rawScore-prev.count*g.penalty);
    const count=prev.count+1,complete=correct===expected.size&&actual.size===expected.size;

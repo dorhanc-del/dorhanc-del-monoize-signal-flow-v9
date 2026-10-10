@@ -99,3 +99,12 @@ V9.7 diagnostic update (2026-10-10):
 - Teacher "Save Assignment + Key" does not update student attempt counters.
 - To record an attempt, students must click "Check & Submit for Grade" and receive a receipt.
 - Existing assignments and attempt records are not reset by this deployment.
+
+
+V9.8 — Student canvas ID correction
+-----------------------------------
+Student submissions now include the actual canvas devices and the server safely maps recreated equipment cards to the teacher assignment's original device IDs. It checks that the type and number of devices match the assignment, then verifies every cable and port before grading. The 2-attempt / 10-point penalty rules are unchanged, and invalid structural submissions still do not consume an attempt.
+
+For teachers: use a published assignment with equipment nodes and a complete answer key saved. For testing, use a new first-name/class combination or a practice-mode assignment. A successfully graded submission will display a receipt number.
+
+Caution: If an assignment contains multiple copies of the same device, recreated copies are mapped to original slots in insertion order. For such lessons keep the original cards on the canvas and move them rather than removing and recreating them.
