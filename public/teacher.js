@@ -69,6 +69,17 @@ $('uploadImage').onclick=async()=>{
  }catch(e){say('assetFeedback',e.message,false)}
  finally{busyImageSave=false;imageButtonsDisabled(false)}
 };
+$('restoreInterface').onclick=async()=>{
+ if(currentKind()!=='gear'||$('itemId').value!=='interface'){
+  say('assetFeedback','Select Audio Interface in Equipment / Source first.',false);return;
+ }
+ if(!confirm('Restore the standard audio interface inputs and outputs? Your image and card name will stay the same.'))return;
+ const oldInputs=$('itemInputs').value,oldOutputs=$('itemOutputs').value;
+ $('itemInputs').value='Combo input 1 (mic / line / instrument)|XLR,TRS,TS\nCombo input 2 (mic / line / instrument)|XLR,TRS,TS';
+ $('itemOutputs').value='Stereo line output|TRS\nUSB output|USB';
+ try {await saveEditedCard('Audio interface connections restored. Your image has been kept. Reload the student assignment before testing.');}
+ catch(e){$('itemInputs').value=oldInputs;$('itemOutputs').value=oldOutputs;say('assetFeedback',e.message,false)}
+};
 $('saveItem').onclick=async()=>{
  if(busyImageSave)return;
  busyImageSave=true;imageButtonsDisabled(true);

@@ -115,3 +115,8 @@ Caution: If an assignment contains multiple copies of the same device, recreated
 In Teacher Studio > Equipment & Cable Library, **Upload image** now uploads the image AND saves it to the currently selected card automatically. You no longer need to click Save card a second time. The selected card stays selected when the catalog refreshes. A visible confirmation appears after the save finishes. Use **Save card / Port configuration** separately for name or port edits. If a save fails, the card is not claimed as updated.
 
 Deploy by committing the full contents of monoize_v99 to the existing GitHub repository. No environment variables or database changes are required.
+
+
+V10.0 troubleshooting fix:
+Teacher Studio → Equipment & Cable Library → select Audio Interface → Restore Audio Interface Ports (keeps image).
+Then reload student assignment. Only a successful Check & Submit for Grade response with receipt registers an attempt; Save Assignment + Key never registers attempts.
