@@ -51,7 +51,7 @@ function teacherAuth(req){const token=(req.headers.get('cookie')||'').match(/(?:
 const canon=(l)=>`${l.from}|${l.fi}|${l.to}|${l.ti}|${l.cable}`;
 function checkEdges(a,edges,catalog){const nodes=new Map((a.nodes||[]).map(n=>[n.id,n]));const gear=new Map(catalog.gear.map(x=>[x.id,x]));const cables=new Set(catalog.cables.map(x=>x.id));if(!Array.isArray(edges)||edges.length>100)return false;let outputs=new Set(),inputs=new Set();for(const e of edges){const f=nodes.get(e.from),t=nodes.get(e.to);if(!f||!t||f.id===t.id||!cables.has(e.cable))return false;const fs=gear.get(f.type),ts=gear.get(t.type);if(!fs||!ts)return false;const out=fs.outputs[e.fi],inn=ts.inputs[e.ti];if(!out||!inn||!out.types.includes(e.cable)||!inn.types.includes(e.cable))return false;const ip=`${e.to}:${e.ti}`,op=`${e.from}:${e.fi}`;if(inputs.has(ip)||outputs.has(op))return false;inputs.add(ip);outputs.add(op)}return true}
 const sanitizeAssignment=a=>({id:a.id,title:a.title,instructions:a.instructions,published:!!a.published,allowed:a.allowed,cables:a.cables,nodes:a.nodes,grading:gradingFor(a)});
-const CLASS_PERIODS=['7A','7B','8A','8B','HMC'];
+const CLASS_PERIODS=['6A','7A','8A','8B'];
 const validStudent=(firstName,classPeriod)=>typeof firstName==='string'&&firstName.trim().length>=1&&firstName.trim().length<=32&&/^[\p{L}][\p{L}\p{M}'’ -]*$/u.test(firstName.trim())&&CLASS_PERIODS.includes(classPeriod);
 const allowedOrigin=(req)=>new URL(req.url).origin;
 export default async function handler(req){
