@@ -68,3 +68,7 @@ This package has been syntax/asset checked, but *live Netlify deployment, image 
 
 ## V9.1 grading rules
 Teacher Studio now has Practice / Assessment mode, graded submission limit, per-prior-submission point penalty, feedback detail, score visibility, and lock-after-final-attempt controls. Defaults: Assessment / 2 submissions / -10 points for the second / general feedback / show score / lock after final. The grading API stores counters in Netlify Blobs keyed by assignment and classroom alias. Note: aliases are self-declared and can be changed, so this is not tamper-proof student identity. For high-stakes use integrate verified student identity, and consider transactional storage for concurrent submissions. Previous submissions are retained in results. Existing projects require a Git commit and redeploy.
+
+
+## V9.2 student identification
+Student entry now requires a first name and one class period from 7A, 7B, 8A, 8B, or HMC. Attempt limits use assignment + first name + class period. Two students sharing a first name in one class collide; students can evade attempts by changing input. No verified authentication is provided. Previously recorded aliases remain readable in Results as Legacy records. Update requires uploading changed repository files and deploying, not merely uploading this ZIP to Netlify Drop. Use test names until district data policy is confirmed.
