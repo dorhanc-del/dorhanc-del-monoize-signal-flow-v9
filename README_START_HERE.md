@@ -90,3 +90,12 @@ Blue input and gold output ports now show a high-contrast tooltip beside the por
 
 ## V9.6 dark background
 The visual theme now uses a near-black canvas and charcoal panels. Equipment-image areas remain light for contrast; gold/blue ports and color-coded wires remain unchanged. No connector logic, student grading, or signal-level rules changed. Deploy by replacing project files in your existing GitHub repository and committing.
+
+
+V9.7 diagnostic update (2026-10-10):
+- Submission errors now identify the exact invalid connection rather than displaying a generic error.
+- Invalid submissions still do NOT use a graded attempt.
+- Teacher answer-key errors identify the port/cable that needs correction.
+- Teacher "Save Assignment + Key" does not update student attempt counters.
+- To record an attempt, students must click "Check & Submit for Grade" and receive a receipt.
+- Existing assignments and attempt records are not reset by this deployment.

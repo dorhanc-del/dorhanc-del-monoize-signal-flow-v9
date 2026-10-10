@@ -65,7 +65,35 @@ function sessionSecret(){return process.env.MONOIZE_SESSION_SECRET||''}
 function authToken(){let t=Math.floor(Date.now()/1000)+8*3600;let value=String(t);return value+'.'+createHmac('sha256',sessionSecret()).update(value).digest('hex')}
 function teacherAuth(req){const token=(req.headers.get('cookie')||'').match(/(?:^|;\s*)monoize_teacher=([^;]+)/)?.[1]||'';const [expiry,sig]=token.split('.');if(!expiry||!sig||!sessionSecret()||!/^[0-9]+$/.test(expiry)||+expiry<Math.floor(Date.now()/1000))return false;const expected=createHmac('sha256',sessionSecret()).update(expiry).digest('hex');return sig.length===expected.length&&timingSafeEqual(Buffer.from(sig),Buffer.from(expected))}
 const canon=(l)=>`${l.from}|${l.fi}|${l.to}|${l.ti}|${l.cable}`;
-function checkEdges(a,edges,catalog){const nodes=new Map((a.nodes||[]).map(n=>[n.id,n]));const gear=new Map(catalog.gear.map(x=>[x.id,x]));const cables=new Set(catalog.cables.map(x=>x.id));if(!Array.isArray(edges)||edges.length>100)return false;let outputs=new Set(),inputs=new Set();for(const e of edges){const f=nodes.get(e.from),t=nodes.get(e.to);if(!f||!t||f.id===t.id||!cables.has(e.cable))return false;const fs=gear.get(f.type),ts=gear.get(t.type);if(!fs||!ts)return false;const out=fs.outputs[e.fi],inn=ts.inputs[e.ti];if(!out||!inn||!out.types.includes(e.cable)||!inn.types.includes(e.cable))return false;const ip=`${e.to}:${e.ti}`,op=`${e.from}:${e.fi}`;if(inputs.has(ip)||outputs.has(op))return false;inputs.add(ip);outputs.add(op)}return true}
+function diagnoseEdges(a,edges,catalog){
+ const nodes=new Map((a.nodes||[]).map(n=>[n.id,n]));
+ const gear=new Map(catalog.gear.map(x=>[x.id,x]));
+ const cables=new Set(catalog.cables.map(x=>x.id));
+ if(!Array.isArray(edges))return 'No valid connection list was received.';
+ if(edges.length>100)return 'Too many connections (maximum 100).';
+ const usedOutputs=new Set(),usedInputs=new Set();
+ for(let index=0;index<edges.length;index++){
+  const e=edges[index],number=index+1;
+  if(!e||typeof e!=='object')return `Connection ${number} is missing data.`;
+  const f=nodes.get(e.from),t=nodes.get(e.to);
+  if(!f||!t)return `Connection ${number} uses a device that is not part of this saved assignment. Reload the assignment.`;
+  if(f.id===t.id)return `Connection ${number} connects a device to itself.`;
+  const fs=gear.get(f.type),ts=gear.get(t.type);
+  if(!fs||!ts)return `Connection ${number} uses equipment missing from the current library. Ask your teacher to update the assignment.`;
+  const out=fs.outputs?.[e.fi],inn=ts.inputs?.[e.ti];
+  if(!out)return `Connection ${number}: ${fs.name} output ${Number(e.fi)+1} is missing from the current library. Your teacher should check its saved ports.`;
+  if(!inn)return `Connection ${number}: ${ts.name} input ${Number(e.ti)+1} is missing from the current library. Your teacher should check its saved ports.`;
+  if(!cables.has(e.cable))return `Connection ${number} refers to a cable no longer in the equipment library.`;
+  if(!out.types.includes(e.cable)||!inn.types.includes(e.cable))return `Connection ${number}: ${fs.name} (${out.name}) to ${ts.name} (${inn.name}) cannot use ${e.cable}. Check the ports in Teacher Studio.`;
+  const ip=`${e.to}:${e.ti}`,op=`${e.from}:${e.fi}`;
+  if(usedInputs.has(ip))return `Connection ${number}: ${ts.name} input ${inn.name} is already connected.`;
+  if(usedOutputs.has(op))return `Connection ${number}: ${fs.name} output ${out.name} is already connected.`;
+  usedInputs.add(ip);usedOutputs.add(op);
+ }
+ return null;
+}
+function checkEdges(a,edges,catalog){return diagnoseEdges(a,edges,catalog)===null;}
+
 const sanitizeAssignment=a=>({id:a.id,title:a.title,instructions:a.instructions,published:!!a.published,allowed:a.allowed,cables:a.cables,nodes:a.nodes,grading:gradingFor(a)});
 const CLASS_PERIODS=['6A','7A','8A','8B'];
 const validStudent=(firstName,classPeriod)=>typeof firstName==='string'&&firstName.trim().length>=1&&firstName.trim().length<=32&&/^[\p{L}][\p{L}\p{M}'’ -]*$/u.test(firstName.trim())&&CLASS_PERIODS.includes(classPeriod);
@@ -103,7 +131,7 @@ export default async function handler(req){
    if(req.method!=='POST')return error('Method not allowed',405);
    const {id,edges,firstName,classPeriod}=await jsonSize(req);const a=await getAssignment(String(id||''));if(!a||!a.published)return error('Assignment unavailable',404);
    if(!validStudent(firstName,classPeriod))return error('Enter your first name and select a class period');
-   const catalog=await loadCatalog();if(!checkEdges(a,edges,catalog))return error('Connections contain an invalid port, cable, or duplicate');
+   const catalog=await loadCatalog();const issue=diagnoseEdges(a,edges,catalog);if(issue)return error(issue+' No attempt was used.',400);
    const g=gradingFor(a),key=studentKey(a.id,firstName,classPeriod),prev=await attemptsStore().get(key,{type:'json'})||{count:0,locked:false};
    if(g.mode==='assessment'&&(prev.locked||prev.count>=g.maxAttempts))return error('No graded attempts remaining. Ask your teacher for help.',403);
    const expected=new Set(a.key.map(canon)),actual=new Set(edges.map(canon));const correct=[...actual].filter(k=>expected.has(k)).length;
@@ -154,7 +182,7 @@ export default async function handler(req){
    const c=await loadCatalog(),gear=new Set(c.gear.map(x=>x.id)),cables=new Set(c.cables.map(x=>x.id));
    if(!Array.isArray(a.allowed)||a.allowed.length>50||a.allowed.some(x=>!gear.has(x))||!Array.isArray(a.cables)||a.cables.some(x=>!cables.has(x)))return error('Invalid equipment or cable list');
    if(!Array.isArray(a.nodes)||a.nodes.length>45||a.nodes.some(x=>!a.allowed.includes(x.type)||!/^[a-zA-Z0-9_-]{1,60}$/.test(x.id)||!Number.isFinite(x.x)||!Number.isFinite(x.y)))return error('Invalid nodes');
-   if(!checkEdges(a,a.key,c))return error('Answer key has an incompatible port/cable');
+   const keyIssue=diagnoseEdges(a,a.key,c);if(keyIssue)return error('Answer key issue: '+keyIssue);
    a.grading=gradingFor(a);a.published=!!a.published;a.updatedAt=new Date().toISOString();await assignmentStore().setJSON('item_'+a.id,a);
    const index=await assignmentStore().get('index',{type:'json'})||[];const i=index.findIndex(x=>x.id===a.id);const entry={id:a.id,title:a.title,published:a.published,updatedAt:a.updatedAt};if(i>=0)index[i]=entry;else index.push(entry);await assignmentStore().setJSON('index',index);
    return resp({ok:true,id:a.id});
