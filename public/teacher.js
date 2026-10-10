@@ -2,7 +2,9 @@ import {$,api,notice,Board,esc} from './core.js';
 const gradingDefaults={mode:'assessment',maxAttempts:2,penalty:10,feedback:'general',showScore:true,lockAfter:true};
 const getGrading=()=>({mode:$('gradingMode').value,maxAttempts:Number($('maxAttempts').value),penalty:Number($('penalty').value),feedback:$('gradingFeedback').value,showScore:$('showScore').checked,lockAfter:$('lockAfter').checked});
 const setGrading=g=>{g={...gradingDefaults,...g};$('gradingMode').value=g.mode;$('maxAttempts').value=String(g.maxAttempts);$('penalty').value=String(g.penalty);$('gradingFeedback').value=g.feedback;$('showScore').checked=g.showScore;$('lockAfter').checked=g.lockAfter};
-const board=new Board({teacher:true});let catalog={gear:[],cables:[]},currentItem=null,results=[];
+const board=new Board({teacher:true});
+$('zoomOut').onclick=()=>board.setZoom(board.zoom-.25);$('zoomIn').onclick=()=>board.setZoom(board.zoom+.25);$('zoomReset').onclick=()=>board.setZoom(1);
+let catalog={gear:[],cables:[]},currentItem=null,results=[];
 let assignment={id:'',title:'',instructions:'',published:false,allowed:[],cables:[],nodes:[],key:[]};
 const show=(id,enabled)=>$(id).classList.toggle('hidden',!enabled);const say=(id,msg,ok=true)=>$(id).innerHTML=`<span class="${ok?'good':'bad'}">${esc(msg)}</span>`;
 async function init(){try{const me=await api('me');show('loginPane',!me.teacher);show('studio',me.teacher);if(me.teacher){await getCatalog();await refreshAssignments();await loadAssignment('demo')}}catch(e){say('loginFeedback',e.message,false)}}
@@ -25,6 +27,7 @@ function parsePorts(raw){return raw.split('\n').map(s=>s.trim()).filter(Boolean)
 function currentKind(){return $('itemType').value}
 function renderAssetList(kind=currentKind(),selectedId=currentItem?.id){$('itemType').value=kind;const items=catalog[kind];$('itemSelect').innerHTML=items.map(i=>`<option value="${esc(i.id)}">${esc(i.name)}</option>`).join('');show('gearFields',kind==='gear');show('cableFields',kind==='cables');$('assetCards').innerHTML=items.map(i=>`<div class="smallcard" data-id="${esc(i.id)}"><img src="${esc(i.image)}" alt=""><b>${esc(i.name)}</b><small>${esc(i.id)}</small></div>`).join('');$('assetCards').querySelectorAll('.smallcard').forEach(c=>c.onclick=()=>fillItem(items.find(i=>i.id===c.dataset.id)));fillItem(items.find(i=>i.id===selectedId)||items[0]||null)}
 function fillItem(item){currentItem=item;$('itemId').value=item?.id||'';$('itemId').readOnly=!!item;$('itemName').value=item?.name||'';$('itemImage').value=item?.image||'';$('imagePreview').src=item?.image||'';$('itemCategory').value=item?.category||'gear';$('itemInputs').value=(item?.inputs||[]).map(p=>p.name+'|'+p.types.join(',')).join('\n');$('itemOutputs').value=(item?.outputs||[]).map(p=>p.name+'|'+p.types.join(',')).join('\n');$('itemColor').value=item?.color||'#62d8ef';if(item)$('itemSelect').value=item.id}
+$('reloadImages').onclick=async()=>{try{await getCatalog(currentKind(),$('itemId').value);say('assetFeedback','Images reloaded from the server.',true)}catch(e){say('assetFeedback',e.message,false)}};
 $('itemType').onchange=()=>{currentItem=null;renderAssetList(currentKind(),null)};$('itemSelect').onchange=()=>fillItem(catalog[currentKind()].find(i=>i.id===$('itemSelect').value));$('newItem').onclick=()=>{fillItem(null);say('assetFeedback','Enter an ID, name, and ports. Upload an image if needed.')};
 // Save a card once, preserving its identity even when the library reloads.
 function itemFromEditor(){
@@ -41,13 +44,17 @@ let busyImageSave=false;
 function imageButtonsDisabled(value){$('uploadImage').disabled=value;$('saveItem').disabled=value;}
 async function saveEditedCard(message='Card and ports updated.'){
  const {kind,item}=itemFromEditor();
- await api('save-catalog',{kind,item});
- // Refresh, but keep the edited card selected rather than switching to the first card.
- await getCatalog(kind,item.id);
- // Netlify image URLs are unique per upload. Refreshing the preview ensures a stale
- // image cached by Chrome does not look like an unsuccessful save.
+ const saved=await api('save-catalog',{kind,item});
+ if(saved.item?.image!==item.image)throw Error('Server did not confirm the new image. Try again.');
+ // Update the visible catalog immediately. Never replace the just-saved image
+ // with a stale catalog snapshot returned immediately after a write.
+ const list=catalog[kind];const i=list.findIndex(x=>x.id===item.id);
+ if(i>=0)list[i]=structuredClone(saved.item);else list.push(structuredClone(saved.item));
+ renderAssetList(kind,item.id);
+ board.setCatalog(catalog.gear,catalog.cables);
+ renderChecks();
  $('imagePreview').src=item.image;
- say('assetFeedback',message,true);
+ say('assetFeedback',message+' Reload the Student Lab to see the new image.',true);
  return item;
 }
 $('uploadImage').onclick=async()=>{

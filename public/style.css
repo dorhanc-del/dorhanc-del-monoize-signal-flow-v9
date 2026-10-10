@@ -17,3 +17,6 @@ body{background:#070707}
 .tile,.choices button{background:#eaf0f7;color:#23344c}
 .node img,.smallcard img{background:#edf3fa}
 .port.in{background:var(--cyan)}.port.out{background:var(--gold)}
+
+/* Workspace zoom controls: CSS zoom keeps SVG paths and ports aligned. */
+.zoomControls{display:inline-flex;align-items:center;gap:5px;background:#242427;border:1px solid #5a5a60;border-radius:10px;padding:4px}.zoomControls button{padding:5px 11px;min-width:36px}.zoomControls #zoomLevel{min-width:44px;text-align:center;font-variant-numeric:tabular-nums;font-weight:800;color:#ffce70;font-size:13px}
