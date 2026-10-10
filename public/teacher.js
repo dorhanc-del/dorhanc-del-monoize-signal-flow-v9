@@ -10,7 +10,7 @@ $('login').onclick=async()=>{try{await api('login',{password:$('password').value
 $('password').addEventListener('keydown',e=>{if(e.key==='Enter')$('login').click()});
 $('logout').onclick=async()=>{await api('logout');location.reload()};
 document.querySelectorAll('[data-tab]').forEach(btn=>btn.onclick=()=>{for(const t of ['assign','assets','results'])show(t,t===btn.dataset.tab);document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('active',b===btn));if(btn.dataset.tab==='results')refreshResults()});
-async function getCatalog(){catalog=await api('catalog');board.setCatalog(catalog.gear,catalog.cables);renderChecks();renderAssetList()}
+async function getCatalog(selectedKind=currentKind(),selectedId=currentItem?.id){catalog=await api('catalog?refresh='+Date.now());board.setCatalog(catalog.gear,catalog.cables);renderChecks();renderAssetList(selectedKind,selectedId)}
 function renderChecks(){for(const [id,list,key] of [['allowedGear',catalog.gear,'allowed'],['allowedCables',catalog.cables,'cables']]){$(id).innerHTML=list.map(item=>`<label><input type="checkbox" value="${esc(item.id)}" ${assignment[key]?.includes(item.id)?'checked':''}> ${esc(item.name)}</label>`).join('')}}
 function getChecks(id){return [...$(id).querySelectorAll('input:checked')].map(i=>i.value)}
 function fillAssignment(a){assignment=structuredClone(a);$('assignmentId').value=a.id;$('assignmentTitle').value=a.title;$('assignmentInstructions').value=a.instructions;$('published').checked=!!a.published;setGrading(a.grading);renderChecks();board.allowed=a.allowed;board.setNodes(a.nodes,a.key);say('feedback','Edit the answer key visually; use Save Assignment + Key when finished.')}
@@ -23,11 +23,58 @@ $('saveAssignment').onclick=async()=>{const data={id:$('assignmentId').value.tri
 $('copyLink').onclick=async()=>{const id=$('assignmentId').value.trim();if(!id){notice('Save an assignment ID first.');return}const url=location.origin+'/?assignment='+encodeURIComponent(id);try{await navigator.clipboard.writeText(url);notice('Copied student link: '+url,true)}catch(e){notice('Student link: '+url,true)}};
 function parsePorts(raw){return raw.split('\n').map(s=>s.trim()).filter(Boolean).map(line=>{const [name,types]=line.split('|');if(!name||!types)throw Error('Each port must use Name|XLR,TRS format');return {name:name.trim(),types:types.split(',').map(x=>x.trim()).filter(Boolean)}})}
 function currentKind(){return $('itemType').value}
-function renderAssetList(){const kind=currentKind(),items=catalog[kind];$('itemSelect').innerHTML=items.map(i=>`<option value="${esc(i.id)}">${esc(i.name)}</option>`).join('');show('gearFields',kind==='gear');show('cableFields',kind==='cables');$('assetCards').innerHTML=items.map(i=>`<div class="smallcard" data-id="${esc(i.id)}"><img src="${esc(i.image)}" alt=""><b>${esc(i.name)}</b><small>${esc(i.id)}</small></div>`).join('');$('assetCards').querySelectorAll('.smallcard').forEach(c=>c.onclick=()=>fillItem(items.find(i=>i.id===c.dataset.id)));fillItem(items[0]||null)}
+function renderAssetList(kind=currentKind(),selectedId=currentItem?.id){$('itemType').value=kind;const items=catalog[kind];$('itemSelect').innerHTML=items.map(i=>`<option value="${esc(i.id)}">${esc(i.name)}</option>`).join('');show('gearFields',kind==='gear');show('cableFields',kind==='cables');$('assetCards').innerHTML=items.map(i=>`<div class="smallcard" data-id="${esc(i.id)}"><img src="${esc(i.image)}" alt=""><b>${esc(i.name)}</b><small>${esc(i.id)}</small></div>`).join('');$('assetCards').querySelectorAll('.smallcard').forEach(c=>c.onclick=()=>fillItem(items.find(i=>i.id===c.dataset.id)));fillItem(items.find(i=>i.id===selectedId)||items[0]||null)}
 function fillItem(item){currentItem=item;$('itemId').value=item?.id||'';$('itemId').readOnly=!!item;$('itemName').value=item?.name||'';$('itemImage').value=item?.image||'';$('imagePreview').src=item?.image||'';$('itemCategory').value=item?.category||'gear';$('itemInputs').value=(item?.inputs||[]).map(p=>p.name+'|'+p.types.join(',')).join('\n');$('itemOutputs').value=(item?.outputs||[]).map(p=>p.name+'|'+p.types.join(',')).join('\n');$('itemColor').value=item?.color||'#62d8ef';if(item)$('itemSelect').value=item.id}
-$('itemType').onchange=renderAssetList;$('itemSelect').onchange=()=>fillItem(catalog[currentKind()].find(i=>i.id===$('itemSelect').value));$('newItem').onclick=()=>{fillItem(null);say('assetFeedback','Enter an ID, name, and ports. Upload an image if needed.')};
-$('uploadImage').onclick=async()=>{const file=$('itemFile').files[0];if(!file){say('assetFeedback','Choose an image file first.',false);return}const form=new FormData();form.append('file',file);try{const res=await fetch('/api/upload-image',{method:'POST',body:form});const d=await res.json();if(!res.ok)throw Error(d.error||'Upload failed');$('itemImage').value=d.url;$('imagePreview').src=d.url;say('assetFeedback','Image uploaded. Click Save card to attach it to this item.')}catch(e){say('assetFeedback',e.message,false)}};
-$('saveItem').onclick=async()=>{try{const kind=currentKind(),item={id:$('itemId').value.trim(),name:$('itemName').value.trim(),image:$('itemImage').value.trim()};if(kind==='gear'){item.category=$('itemCategory').value;item.inputs=parsePorts($('itemInputs').value);item.outputs=parsePorts($('itemOutputs').value)}else item.color=$('itemColor').value;await api('save-catalog',{kind,item});await getCatalog();$('itemType').value=kind;renderAssetList();fillItem(catalog[kind].find(i=>i.id===item.id));say('assetFeedback','Card and ports updated. New assignments will use the updated asset.')}catch(e){say('assetFeedback',e.message,false)}};
+$('itemType').onchange=()=>{currentItem=null;renderAssetList(currentKind(),null)};$('itemSelect').onchange=()=>fillItem(catalog[currentKind()].find(i=>i.id===$('itemSelect').value));$('newItem').onclick=()=>{fillItem(null);say('assetFeedback','Enter an ID, name, and ports. Upload an image if needed.')};
+// Save a card once, preserving its identity even when the library reloads.
+function itemFromEditor(){
+ const kind=currentKind();
+ const item={id:$('itemId').value.trim(),name:$('itemName').value.trim(),image:$('itemImage').value.trim()};
+ if(kind==='gear'){
+   item.category=$('itemCategory').value;
+   item.inputs=parsePorts($('itemInputs').value);
+   item.outputs=parsePorts($('itemOutputs').value);
+ }else item.color=$('itemColor').value;
+ return {kind,item};
+}
+let busyImageSave=false;
+function imageButtonsDisabled(value){$('uploadImage').disabled=value;$('saveItem').disabled=value;}
+async function saveEditedCard(message='Card and ports updated.'){
+ const {kind,item}=itemFromEditor();
+ await api('save-catalog',{kind,item});
+ // Refresh, but keep the edited card selected rather than switching to the first card.
+ await getCatalog(kind,item.id);
+ // Netlify image URLs are unique per upload. Refreshing the preview ensures a stale
+ // image cached by Chrome does not look like an unsuccessful save.
+ $('imagePreview').src=item.image;
+ say('assetFeedback',message,true);
+ return item;
+}
+$('uploadImage').onclick=async()=>{
+ if(busyImageSave)return;
+ const file=$('itemFile').files[0];
+ if(!file){say('assetFeedback','Choose an image file first.',false);return}
+ busyImageSave=true;imageButtonsDisabled(true);
+ say('assetFeedback','Uploading image and saving card…',true);
+ try{
+   // Validate metadata before uploading, so an invalid card cannot strand an upload.
+   itemFromEditor();
+   const form=new FormData();form.append('file',file);
+   const res=await fetch('/api/upload-image',{method:'POST',body:form});
+   const d=await res.json();if(!res.ok)throw Error(d.error||'Upload failed');
+   $('itemImage').value=d.url;
+   $('imagePreview').src=d.url;
+   await saveEditedCard('Image uploaded and saved to this card. No second save needed.');
+   $('itemFile').value='';
+ }catch(e){say('assetFeedback',e.message,false)}
+ finally{busyImageSave=false;imageButtonsDisabled(false)}
+};
+$('saveItem').onclick=async()=>{
+ if(busyImageSave)return;
+ busyImageSave=true;imageButtonsDisabled(true);
+ try{await saveEditedCard()}catch(e){say('assetFeedback',e.message,false)}
+ finally{busyImageSave=false;imageButtonsDisabled(false)}
+};
 async function refreshResults(){try{const r=await api('results');results=r.results;$('resultsRows').innerHTML=results.map(x=>`<tr><td>${esc(new Date(x.submittedAt).toLocaleString())}</td><td>${esc(x.title)}</td><td>${esc(x.firstName||x.alias||'')}</td><td>${esc(x.classPeriod||'Legacy')}</td><td>${esc(x.mode||'assessment')}</td><td>${x.attempt||1}</td><td>${x.score}%</td><td>${x.penaltyApplied||0}</td><td>${x.correct}/${x.total}</td></tr>`).join('');say('resultsFeedback',results.length+' recorded submissions.')}catch(e){say('resultsFeedback',e.message,false)}}
 $('refreshResults').onclick=refreshResults;
 $('downloadCsv').onclick=()=>{const rows=[['Date','Assignment','First name','Class period','Mode','Attempt','Score','Penalty','Correct','Total'],...results.map(r=>[r.submittedAt,r.title,r.firstName||r.alias||'',r.classPeriod||'Legacy',r.mode||'assessment',r.attempt||1,r.score,r.penaltyApplied||0,r.correct,r.total])];const csv=rows.map(row=>row.map(v=>'"'+String(v).replace(/^[=+@-]/,"' $&").replace(/"/g,'""')+'"').join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const a=document.createElement('a');a.href=url;a.download='monoize-results.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};

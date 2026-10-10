@@ -108,3 +108,10 @@ Student submissions now include the actual canvas devices and the server safely 
 For teachers: use a published assignment with equipment nodes and a complete answer key saved. For testing, use a new first-name/class combination or a practice-mode assignment. A successfully graded submission will display a receipt number.
 
 Caution: If an assignment contains multiple copies of the same device, recreated copies are mapped to original slots in insertion order. For such lessons keep the original cards on the canvas and move them rather than removing and recreating them.
+
+
+## V9.9 — Image upload save fix
+
+In Teacher Studio > Equipment & Cable Library, **Upload image** now uploads the image AND saves it to the currently selected card automatically. You no longer need to click Save card a second time. The selected card stays selected when the catalog refreshes. A visible confirmation appears after the save finishes. Use **Save card / Port configuration** separately for name or port edits. If a save fails, the card is not claimed as updated.
+
+Deploy by committing the full contents of monoize_v99 to the existing GitHub repository. No environment variables or database changes are required.
