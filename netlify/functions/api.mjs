@@ -8,6 +8,8 @@ const imageStore=()=>getStore('monoize-images');
 const attemptsStore=()=>getStore('monoize-attempts');
 const gradingDefaults={mode:'assessment',maxAttempts:2,penalty:10,feedback:'general',showScore:true,lockAfter:true};
 const gradingFor=a=>{const r={...gradingDefaults,...(a.grading||{})};r.mode=r.mode==='practice'?'practice':'assessment';r.maxAttempts=[1,2,3,5].includes(Number(r.maxAttempts))?Number(r.maxAttempts):2;r.penalty=[0,5,10,15,20,25].includes(Number(r.penalty))?Number(r.penalty):10;r.feedback=['general','hints','detailed'].includes(r.feedback)?r.feedback:'general';r.showScore=!!r.showScore;r.lockAfter=!!r.lockAfter;return r};
+const denverDay=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Denver',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+const attemptKey=(id,firstName,classPeriod)=>studentKey(id,firstName,classPeriod)+'_day_'+denverDay();
 const studentKey=(id,firstName,classPeriod)=>'a_'+createHmac('sha256',process.env.MONOIZE_SESSION_SECRET||'monoize').update(id+'|'+classPeriod+'|'+firstName.trim().normalize('NFC').toLocaleLowerCase('en')).digest('hex');
 const JSON_HEADERS={'content-type':'application/json; charset=utf-8','cache-control':'no-store'};
 const resp=(body,status=200,headers={})=>new Response(JSON.stringify(body),{status,headers:{...JSON_HEADERS,...headers}});
@@ -150,22 +152,22 @@ export default async function handler(req){
    const u=new URL(req.url),id=u.searchParams.get('id')||'',firstName=u.searchParams.get('firstName')||'',classPeriod=u.searchParams.get('classPeriod')||'';
    if(!/^[a-zA-Z0-9_-]{1,60}$/.test(id)||!validStudent(firstName,classPeriod))return error('Enter a valid first name and class period');
    const a=await getAssignment(id);if(!a||!a.published)return error('Assignment unavailable',404);
-   const g=gradingFor(a);const prior=await attemptsStore().get(studentKey(id,firstName,classPeriod),{type:'json'})||{count:0,locked:false};
-   return resp({count:prior.count,locked:!!prior.locked,remaining:g.mode==='practice'?null:Math.max(0,g.maxAttempts-prior.count),grading:g});
+   const g=gradingFor(a);const prior=await attemptsStore().get(attemptKey(id,firstName,classPeriod),{type:'json'})||{count:0,locked:false};
+   return resp({count:prior.count,locked:!!prior.locked,remaining:g.mode==='practice'?null:Math.max(0,g.maxAttempts-prior.count),grading:g,day:denverDay(),resetTimezone:'America/Denver'});
   }
   if(path==='submit'){
    if(req.method!=='POST')return error('Method not allowed',405);
    const {id,edges,nodes,firstName,classPeriod}=await jsonSize(req);const a=await getAssignment(String(id||''));if(!a||!a.published)return error('Assignment unavailable',404);
    if(!validStudent(firstName,classPeriod))return error('Enter your first name and select a class period');
    const catalog=await loadCatalog();if(!Array.isArray(edges))return error('No valid connection list received. No attempt was used.',400);const mapped=matchStudentCanvas(a,nodes,edges);if(mapped.error)return error(mapped.error+' No attempt was used.',400);const gradedEdges=mapped.edges;const issue=diagnoseEdges(a,gradedEdges,catalog);if(issue)return error(issue+' No attempt was used.',400);
-   const g=gradingFor(a),key=studentKey(a.id,firstName,classPeriod),prev=await attemptsStore().get(key,{type:'json'})||{count:0,locked:false};
+   const g=gradingFor(a),key=attemptKey(a.id,firstName,classPeriod),prev=await attemptsStore().get(key,{type:'json'})||{count:0,locked:false};
    if(g.mode==='assessment'&&(prev.locked||prev.count>=g.maxAttempts))return error('No graded attempts remaining. Ask your teacher for help.',403);
    const expected=new Set(a.key.map(canon)),actual=new Set(gradedEdges.map(canon));const correct=[...actual].filter(k=>expected.has(k)).length;
    const rawScore=expected.size?Math.round(100*correct/expected.size):0;
    const score=g.mode==='practice'?rawScore:Math.max(0,rawScore-prev.count*g.penalty);
    const count=prev.count+1,complete=correct===expected.size&&actual.size===expected.size;
    const locked=g.mode==='assessment'&&g.lockAfter&&count>=g.maxAttempts;
-   const record={id:randomUUID(),assignment:a.id,title:a.title,firstName:firstName.trim(),classPeriod,score,rawScore,penaltyApplied:g.mode==='practice'?0:prev.count*g.penalty,attempt:count,mode:g.mode,complete,correct,total:expected.size,submittedAt:new Date().toISOString()};
+   const record={id:randomUUID(),assignment:a.id,title:a.title,firstName:firstName.trim(),classPeriod,score,rawScore,penaltyApplied:g.mode==='practice'?0:prev.count*g.penalty,attempt:count,gradingDay:denverDay(),mode:g.mode,complete,correct,total:expected.size,submittedAt:new Date().toISOString()};
    await attemptsStore().setJSON(key,{count,locked,lastScore:score,updatedAt:record.submittedAt});
    await submissionStore().setJSON('r_'+record.id,record);
    const remaining=g.mode==='practice'?null:Math.max(0,g.maxAttempts-count);
@@ -173,9 +175,25 @@ export default async function handler(req){
    let hint=general;
    if(g.feedback==='hints'&&!complete)hint+=` You have ${Math.max(0,expected.size-correct)} missing or incorrect required connection(s).`;
    if(g.feedback==='detailed'&&!complete)hint+=` ${[...actual].filter(x=>!expected.has(x)).length} submitted wire(s) do not match the answer key.`;
-   return resp({score:g.showScore?score:null,rawScore:g.showScore?rawScore:null,penaltyApplied:g.showScore?record.penaltyApplied:null,correct:g.feedback==='detailed'?correct:null,total:g.feedback==='detailed'?expected.size:null,attempt:count,remaining,locked,complete,feedback:hint,submittedAt:record.submittedAt,receipt:record.id.slice(0,8)});
+   return resp({score:g.showScore?score:null,rawScore:g.showScore?rawScore:null,penaltyApplied:g.showScore?record.penaltyApplied:null,correct:g.feedback==='detailed'?correct:null,total:g.feedback==='detailed'?expected.size:null,attempt:count,remaining,locked,complete,gradingDay:denverDay(),feedback:hint,submittedAt:record.submittedAt,receipt:record.id.slice(0,8)});
   }
   if(!teacherAuth(req))return error('Teacher login required',401);
+  if(path==='reset-attempts'){
+   if(req.method!=='POST')return error('Method not allowed',405);
+   const {id,firstName,classPeriod,requirePerfectFirst=true}=await jsonSize(req);
+   if(!/^[a-zA-Z0-9_-]{1,60}$/.test(String(id||''))||!validStudent(firstName,classPeriod))return error('Valid assignment, first name and class are required');
+   const a=await getAssignment(id);if(!a)return error('Assignment not found',404);
+   const key=attemptKey(id,firstName,classPeriod),prior=await attemptsStore().get(key,{type:'json'});
+   if(!prior||!prior.count)return error('There are no attempts to reset today',400);
+   if(requirePerfectFirst){
+    const batches=[];let cursor;do{const batch=await submissionStore().list({prefix:'r_',cursor});batches.push(...batch.blobs);cursor=batch.cursor}while(cursor&&batches.length<1000);
+    const rows=(await Promise.all(batches.map(x=>submissionStore().get(x.key,{type:'json'})))).filter(Boolean);
+    const match=rows.some(r=>r.assignment===id&&r.firstName.trim().toLocaleLowerCase('en')===firstName.trim().toLocaleLowerCase('en')&&r.classPeriod===classPeriod&&r.gradingDay===denverDay()&&r.attempt===1&&r.rawScore===100);
+    if(!match)return error('Only a perfect first attempt can be reset with this option. Previous grades were not changed.',403);
+   }
+   await attemptsStore().setJSON(key,{count:0,locked:false,updatedAt:new Date().toISOString(),resetByTeacher:true});
+   return resp({ok:true,day:denverDay(),message:'Attempts reset for today. Recorded grades remain in Results.'});
+  }
   if(path==='catalog')return resp(await loadCatalog());
   if(path==='save-catalog'){
    if(req.method!=='POST')return error('Method not allowed',405);
