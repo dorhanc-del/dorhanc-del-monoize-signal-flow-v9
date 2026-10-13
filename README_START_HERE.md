@@ -28,3 +28,17 @@ Teacher Studio continues to save its exemplar layout and answer-key wires. The S
 ## V10.3 — Daily attempt resets
 
 Attempts are now tracked per assignment, first name, class, and Denver calendar day. The day changes at midnight America/Denver. Existing grades are preserved; prior attempt state is not deleted. No student can reset assessment attempts. In Teacher Studio > Grades & Results, there is a reset control for a student who scored 100 raw points on the first submission today. Resets permit an additional graded run on the same day; old results remain visible. This is teacher-authenticated. Students using another alias can still bypass attempt limits, as before. Test with a sample identity.
+
+## V10.4 — Selective cable removal and grading breakdown
+
+- In Student Lab and Teacher Studio, click a wire on the canvas and confirm to disconnect only that wire. You can also remove a connection from the Connections list or click Undo last wire. Rewiring does not use an attempt.
+- After a successful graded submission, Student Lab displays raw connection accuracy, attempt penalty, and final score. For a second attempt with a 10-point penalty and 100% raw accuracy, the final score is 90%.
+- The teacher exemplar and per-assignment grading settings determine the raw score and penalty. If a result is 75%, review the saved answer key and grading penalty in Teacher Studio.
+
+
+## V10.5 — Image-only cable quiz
+
+The Student Lab cable picker shows pictures/symbols only, without visible cable names or abbreviations.
+Teacher Studio still labels cable choices so the answer key is easy to create.
+Cable names are retained in accessibility labels and grading data. Existing photos whose labels are baked directly into the lower part of an image are cropped in the selection window.
+Connection labels **after** cable selection remain visible on the signal-flow canvas.

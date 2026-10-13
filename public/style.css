@@ -20,3 +20,13 @@ body{background:#070707}
 
 /* Workspace zoom controls: CSS zoom keeps SVG paths and ports aligned. */
 .zoomControls{display:inline-flex;align-items:center;gap:5px;background:#242427;border:1px solid #5a5a60;border-radius:10px;padding:4px}.zoomControls button{padding:5px 11px;min-width:36px}.zoomControls #zoomLevel{min-width:44px;text-align:center;font-variant-numeric:tabular-nums;font-weight:800;color:#ffce70;font-size:13px}
+/* Allow individual cable removal while leaving device controls interactive. */
+.wire path[role="button"]{pointer-events:stroke;cursor:pointer}
+.wire path[role="button"]:focus{outline:none;stroke:#ffffff55;stroke-width:28}
+
+/* Student cable quiz: only imagery is visible, with an accessible name for screen readers.
+   The clipping region hides title text already baked into existing flashcard photos. */
+.choices button.imageOnlyCable{display:flex;align-items:center;justify-content:center;min-height:120px;padding:8px;overflow:hidden}
+.choices .cableVisual{display:block;position:relative;width:100%;height:104px;overflow:hidden;border-radius:7px;background:#eaf0f7}
+.choices .cableVisual img{display:block;width:100%;height:auto;min-height:104px;max-height:none;object-fit:cover;object-position:top center}
+.choices .acousticSymbol{display:flex;align-items:center;justify-content:center;color:#1e3347;font-size:54px}
