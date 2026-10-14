@@ -164,10 +164,11 @@ export default async function handler(req){
    if(g.mode==='assessment'&&(prev.locked||prev.count>=g.maxAttempts))return error('No graded attempts remaining. Ask your teacher for help.',403);
    const expected=new Set(a.key.map(canon)),actual=new Set(gradedEdges.map(canon));const correct=[...actual].filter(k=>expected.has(k)).length;
    const rawScore=expected.size?Math.round(100*correct/expected.size):0;
-   const score=g.mode==='practice'?rawScore:Math.max(0,rawScore-prev.count*g.penalty);
+   const calculatedScore=g.mode==='practice'?rawScore:Math.max(0,rawScore-prev.count*g.penalty);
+   const score=Math.max(50,calculatedScore); // DPS-equity configured floor on recorded grades; raw score retained
    const count=prev.count+1,complete=correct===expected.size&&actual.size===expected.size;
    const locked=g.mode==='assessment'&&g.lockAfter&&count>=g.maxAttempts;
-   const record={id:randomUUID(),assignment:a.id,title:a.title,firstName:firstName.trim(),classPeriod,score,rawScore,penaltyApplied:g.mode==='practice'?0:prev.count*g.penalty,attempt:count,gradingDay:denverDay(),mode:g.mode,complete,correct,total:expected.size,submittedAt:new Date().toISOString()};
+   const record={id:randomUUID(),assignment:a.id,title:a.title,firstName:firstName.trim(),classPeriod,score,calculatedScore,gradeFloor:50,gradeFloorApplied:calculatedScore<50,rawScore,penaltyApplied:g.mode==='practice'?0:prev.count*g.penalty,attempt:count,gradingDay:denverDay(),mode:g.mode,complete,correct,total:expected.size,submittedAt:new Date().toISOString()};
    await attemptsStore().setJSON(key,{count,locked,lastScore:score,updatedAt:record.submittedAt});
    await submissionStore().setJSON('r_'+record.id,record);
    const remaining=g.mode==='practice'?null:Math.max(0,g.maxAttempts-count);
@@ -175,7 +176,7 @@ export default async function handler(req){
    let hint=general;
    if(g.feedback==='hints'&&!complete)hint+=` You have ${Math.max(0,expected.size-correct)} missing or incorrect required connection(s).`;
    if(g.feedback==='detailed'&&!complete)hint+=` ${[...actual].filter(x=>!expected.has(x)).length} submitted wire(s) do not match the answer key.`;
-   return resp({score:g.showScore?score:null,rawScore:g.showScore?rawScore:null,penaltyApplied:g.showScore?record.penaltyApplied:null,correct:g.feedback==='detailed'?correct:null,total:g.feedback==='detailed'?expected.size:null,attempt:count,remaining,locked,complete,gradingDay:denverDay(),feedback:hint,submittedAt:record.submittedAt,receipt:record.id.slice(0,8)});
+   return resp({score:g.showScore?score:null,rawScore:g.showScore?rawScore:null,calculatedScore:g.showScore?calculatedScore:null,gradeFloorApplied:g.showScore?record.gradeFloorApplied:null,penaltyApplied:g.showScore?record.penaltyApplied:null,correct:g.feedback==='detailed'?correct:null,total:g.feedback==='detailed'?expected.size:null,attempt:count,remaining,locked,complete,gradingDay:denverDay(),feedback:hint,submittedAt:record.submittedAt,receipt:record.id.slice(0,8)});
   }
   if(!teacherAuth(req))return error('Teacher login required',401);
   if(path==='reset-attempts'){

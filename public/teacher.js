@@ -93,9 +93,19 @@ $('saveItem').onclick=async()=>{
  try{await saveEditedCard()}catch(e){say('assetFeedback',e.message,false)}
  finally{busyImageSave=false;imageButtonsDisabled(false)}
 };
-async function refreshResults(){try{const r=await api('results');results=r.results;$('resultsRows').innerHTML=results.map(x=>`<tr><td>${esc(new Date(x.submittedAt).toLocaleString())}</td><td>${esc(x.title)}</td><td>${esc(x.firstName||x.alias||'')}</td><td>${esc(x.classPeriod||'Legacy')}</td><td>${esc(x.mode||'assessment')}</td><td>${x.attempt||1}</td><td>${x.score}%</td><td>${x.penaltyApplied||0}</td><td>${x.correct}/${x.total}</td></tr>`).join('');say('resultsFeedback',results.length+' recorded submissions.')}catch(e){say('resultsFeedback',e.message,false)}}
+function gradeExplanation(x){
+ const raw=Number(x.rawScore??x.score??0), penalty=Number(x.penaltyApplied||0);
+ const preFloor=Number(x.calculatedScore??Math.max(0,raw-penalty));
+ const floorApplied=x.gradeFloorApplied??(Number(x.score)===50&&preFloor<50);
+ const pieces=[`Connections: ${Number(x.correct)||0}/${Number(x.total)||0}`,`Raw: ${raw}%`,`Attempt ${Number(x.attempt)||1} deduction: −${penalty}`,`After deduction: ${preFloor}%`];
+ if(floorApplied)pieces.push('50% equity floor applied');
+ else pieces.push('No floor adjustment');
+ pieces.push(`Recorded: ${x.score}%`);
+ return pieces.join(' · ');
+}
+async function refreshResults(){try{const r=await api('results');results=r.results;$('resultsRows').innerHTML=results.map(x=>`<tr><td>${esc(new Date(x.submittedAt).toLocaleString())}</td><td>${esc(x.title)}</td><td>${esc(x.firstName||x.alias||'')}</td><td>${esc(x.classPeriod||'Legacy')}</td><td>${esc(x.mode||'assessment')}</td><td>${x.attempt||1}</td><td><b>${x.score}%</b></td><td>${x.penaltyApplied||0}</td><td>${x.correct}/${x.total}</td><td class="gradeExplain">${esc(gradeExplanation(x))}</td></tr>`).join('');say('resultsFeedback',results.length+' recorded submissions. Grades use a 50% floor on new submissions; earlier records retain their previously recorded grades.')}catch(e){say('resultsFeedback',e.message,false)}}
 $('refreshResults').onclick=refreshResults;
-$('downloadCsv').onclick=()=>{const rows=[['Date','Assignment','First name','Class period','Mode','Attempt','Score','Penalty','Correct','Total'],...results.map(r=>[r.submittedAt,r.title,r.firstName||r.alias||'',r.classPeriod||'Legacy',r.mode||'assessment',r.attempt||1,r.score,r.penaltyApplied||0,r.correct,r.total])];const csv=rows.map(row=>row.map(v=>'"'+String(v).replace(/^[=+@-]/,"' $&").replace(/"/g,'""')+'"').join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const a=document.createElement('a');a.href=url;a.download='monoize-results.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
+$('downloadCsv').onclick=()=>{const rows=[['Date','Assignment','First name','Class period','Mode','Attempt','Score','Penalty','Correct','Total','Grade explanation','Raw score','Pre-floor score','Equity floor applied'],...results.map(r=>[r.submittedAt,r.title,r.firstName||r.alias||'',r.classPeriod||'Legacy',r.mode||'assessment',r.attempt||1,r.score,r.penaltyApplied||0,r.correct,r.total,gradeExplanation(r),r.rawScore??r.score,r.calculatedScore??Math.max(0,Number(r.rawScore??r.score)-Number(r.penaltyApplied||0)),r.gradeFloorApplied??false])];const csv=rows.map(row=>row.map(v=>'"'+String(v).replace(/^[=+@-]/,"' $&").replace(/"/g,'""')+'"').join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const a=document.createElement('a');a.href=url;a.download='monoize-results.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 init();
 
 $('resetAttempts').onclick=async()=>{const id=$('resetAssignment').value.trim(),firstName=$('resetFirstName').value.trim(),classPeriod=$('resetClass').value;if(!id||!firstName||!classPeriod){say('attemptResetFeedback','Enter the assignment ID, first name, and class.',false);return}if(!confirm(`Reset today's attempts for ${firstName} (${classPeriod}) in ${id}? Past grades will remain saved.`))return;try{const r=await api('reset-attempts',{id,firstName,classPeriod,requirePerfectFirst:true});say('attemptResetFeedback',r.message,true)}catch(e){say('attemptResetFeedback',e.message,false)}};
