@@ -103,9 +103,19 @@ function gradeExplanation(x){
  pieces.push(`Recorded: ${x.score}%`);
  return pieces.join(' · ');
 }
-async function refreshResults(){try{const r=await api('results');results=r.results;$('resultsRows').innerHTML=results.map(x=>`<tr><td>${esc(new Date(x.submittedAt).toLocaleString())}</td><td>${esc(x.title)}</td><td>${esc(x.firstName||x.alias||'')}</td><td>${esc(x.classPeriod||'Legacy')}</td><td>${esc(x.mode||'assessment')}</td><td>${x.attempt||1}</td><td><b>${x.score}%</b></td><td>${x.penaltyApplied||0}</td><td>${x.correct}/${x.total}</td><td class="gradeExplain">${esc(gradeExplanation(x))}</td></tr>`).join('');say('resultsFeedback',results.length+' recorded submissions. Grades use a 50% floor on new submissions; earlier records retain their previously recorded grades.')}catch(e){say('resultsFeedback',e.message,false)}}
+async function refreshResults(){try{const r=await api('results');results=r.results;$('resultsRows').innerHTML=results.map(x=>`<tr><td>${esc(new Date(x.submittedAt).toLocaleString())}</td><td>${esc(x.title)}</td><td>${esc(x.firstName||x.alias||'')}</td><td>${esc(x.classPeriod||'Legacy')}</td><td>${esc(x.mode||'assessment')}</td><td>${x.attempt||1}</td><td><b>${x.score}%</b></td><td>${x.penaltyApplied||0}</td><td>${x.correct}/${x.total}</td><td class="gradeExplain">${esc(gradeExplanation(x))}</td><td><button type="button" class="resetGradeAttempts" data-id="${esc(x.assignment||'')}" data-name="${esc(x.firstName||'')}" data-class="${esc(x.classPeriod||'')}">Reset attempts</button></td></tr>`).join('');say('resultsFeedback',results.length+' recorded submissions. Grades use a 50% floor on new submissions; earlier records retain their previously recorded grades.')}catch(e){say('resultsFeedback',e.message,false)}}
 $('refreshResults').onclick=refreshResults;
 $('downloadCsv').onclick=()=>{const rows=[['Date','Assignment','First name','Class period','Mode','Attempt','Score','Penalty','Correct','Total','Grade explanation','Raw score','Pre-floor score','Equity floor applied'],...results.map(r=>[r.submittedAt,r.title,r.firstName||r.alias||'',r.classPeriod||'Legacy',r.mode||'assessment',r.attempt||1,r.score,r.penaltyApplied||0,r.correct,r.total,gradeExplanation(r),r.rawScore??r.score,r.calculatedScore??Math.max(0,Number(r.rawScore??r.score)-Number(r.penaltyApplied||0)),r.gradeFloorApplied??false])];const csv=rows.map(row=>row.map(v=>'"'+String(v).replace(/^[=+@-]/,"' $&").replace(/"/g,'""')+'"').join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const a=document.createElement('a');a.href=url;a.download='monoize-results.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 init();
 
-$('resetAttempts').onclick=async()=>{const id=$('resetAssignment').value.trim(),firstName=$('resetFirstName').value.trim(),classPeriod=$('resetClass').value;if(!id||!firstName||!classPeriod){say('attemptResetFeedback','Enter the assignment ID, first name, and class.',false);return}if(!confirm(`Reset today's attempts for ${firstName} (${classPeriod}) in ${id}? Past grades will remain saved.`))return;try{const r=await api('reset-attempts',{id,firstName,classPeriod,requirePerfectFirst:true});say('attemptResetFeedback',r.message,true)}catch(e){say('attemptResetFeedback',e.message,false)}};
+async function resetStudentAttempts(id,firstName,classPeriod){
+ if(!id||!firstName||!classPeriod){say('attemptResetFeedback','Choose a valid assignment, first name, and class.',false);return}
+ if(!confirm(`Reset today's attempts for ${firstName} (${classPeriod}) in ${id}? This will let the student start at attempt 1 again. Previous grades will stay saved.`))return;
+ try{const r=await api('reset-attempts',{id,firstName,classPeriod});say('attemptResetFeedback',r.message,true);await refreshResults();}
+ catch(e){say('attemptResetFeedback',e.message,false)}
+}
+$('resetAttempts').onclick=()=>resetStudentAttempts($('resetAssignment').value.trim(),$('resetFirstName').value.trim(),$('resetClass').value);
+$('resultsRows').addEventListener('click',e=>{
+ const button=e.target.closest('button.resetGradeAttempts');if(!button)return;
+ resetStudentAttempts(button.dataset.id,button.dataset.name,button.dataset.class);
+});

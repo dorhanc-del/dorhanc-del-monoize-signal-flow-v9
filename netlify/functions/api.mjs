@@ -25,8 +25,8 @@ const baseCatalog=[
  {id:'ipad',name:'iPad',category:'source',image:'/images/ipad-card.png',inputs:[],outputs:[{name:'USB-C audio out',types:['USB']}]},
  {id:'adapter',name:'USB-C Audio Adapter',category:'gear',image:'/images/usbc-adapter-card.png',inputs:[{name:'USB-C input',types:['USB']}],outputs:[{name:'3.5mm audio output',types:['HYBRID']}]},
  {id:'interface',name:'Audio Interface',category:'gear',image:'/images/audio-interface.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'Stereo line output',types:['TRS','TS']},{name:'USB output',types:['USB']}]},
- {id:'mixer',name:'Audio Mixer',category:'gear',image:'/images/mixer.svg',inputs:[{name:'Mic 1',types:['XLR']},{name:'Mic 2',types:['XLR']},{name:'Line A',types:['TRS','TS','RCA','HYBRID']},{name:'Line B',types:['TRS','TS','RCA','HYBRID']}],outputs:[{name:'Main line output',types:['TRS']}]},
- {id:'rodecaster',name:'RØDECaster Pro II (Mixer / Interface)',category:'gear',image:'/images/rodecaster-pro-ii.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 3 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 4 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'USB audio interface out',types:['USB']},{name:'Main TRS output',types:['TRS']}]},
+ {id:'mixer',name:'Audio Mixer',category:'gear',image:'/images/mixer.svg',inputs:[{name:'Mic 1',types:['XLR']},{name:'Mic 2',types:['XLR']},{name:'Line A',types:['TRS','TS','RCA','HYBRID']},{name:'Line B',types:['TRS','TS','RCA','HYBRID']}],outputs:[{name:'Main line output',types:['TRS','TS']}]},
+ {id:'rodecaster',name:'RØDECaster Pro II (Mixer / Interface)',category:'gear',image:'/images/rodecaster-pro-ii.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 3 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 4 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'USB audio interface out',types:['USB']},{name:'Main TRS output',types:['TRS','TS']}]},
  {id:'laptop',name:'Laptop',category:'destination',image:'/images/laptop-card.png',inputs:[{name:'USB input',types:['USB']}],outputs:[]},
  {id:'speaker',name:'PA Speakers',category:'destination',image:'/images/pa-system-card.png',inputs:[{name:'Line input',types:['TRS','RCA']}],outputs:[]},
  {id:'monitors',name:'Studio Monitors',category:'destination',image:'/images/studio-monitors-card.png',inputs:[{name:'Line input',types:['TRS','RCA']}],outputs:[]}
@@ -46,14 +46,16 @@ const normalizeCatalog=(saved)=>Array.isArray(saved)?saved:baseCatalog;
 const normalizeCables=(saved)=>Array.isArray(saved)?saved:baseCables;
 // Bring legacy built-in combo-input definitions up to date without resetting user image uploads or custom cards.
 function upgradeLegacyBuiltins(gear){return gear.map(item=>{
- if(!['interface','rodecaster'].includes(item.id))return item;
- const next={...item,inputs:(item.inputs||[]).map(p=>({...p,types:[...(p.types||[])]}))};
+ if(!['interface','mixer','rodecaster'].includes(item.id))return item;
+ const next={...item,inputs:(item.inputs||[]).map(p=>({...p,types:[...(p.types||[])]})),outputs:(item.outputs||[]).map(p=>({...p,types:[...(p.types||[])]}))};
  // Only add TRS to recognized stock combo ports. Custom ports stay untouched.
  next.inputs.forEach(p=>{
   if(/^Combo input [1-4](?:$|\s|\()/i.test(p.name)&&p.types.includes('XLR')&&p.types.includes('TS')&&!p.types.includes('TRS'))p.types.push('TRS');
   if(/^Combo input [1-4]$/i.test(p.name))p.name+=' (mic / line / instrument)';
  });
  if(item.id==='interface')next.outputs.forEach(p=>{if(/^Stereo line output/i.test(p.name)&&p.types.includes('TRS')&&!p.types.includes('TS'))p.types.push('TS')});
+ // Existing saved stock mixer ports need this migration too; leave custom outputs alone.
+ if(item.id==='mixer'||item.id==='rodecaster')next.outputs.forEach(p=>{if(/^(Main line output|Main TRS output)$/i.test(p.name)&&p.types.includes('TRS')&&!p.types.includes('TS'))p.types.push('TS')});
  // Four RØDECaster Pro II combo inputs. Migrate the older placeholder third port.
  if(item.id==='rodecaster'&&next.inputs.length===3&&next.inputs[2].name==='Line input'&&next.inputs[2].types.join(',')==='TRS'){
    next.inputs[2]={name:'Combo input 3 (mic / line / instrument)',types:['XLR','TRS','TS']};
@@ -175,7 +177,8 @@ export default async function handler(req){
    if(!/^[a-zA-Z0-9_-]{1,60}$/.test(id)||!validStudent(firstName,classPeriod))return error('Enter a valid first name and class period');
    const a=await getAssignment(id);if(!a||!a.published)return error('Assignment unavailable',404);
    const g=gradingFor(a);const prior=await attemptsStore().get(attemptKey(id,firstName,classPeriod),{type:'json'})||{count:0,locked:false};
-   return resp({count:prior.count,locked:!!prior.locked,remaining:g.mode==='practice'?null:Math.max(0,g.maxAttempts-prior.count),grading:g,day:denverDay(),resetTimezone:'America/Denver'});
+   const count=Math.max(0,Number(prior.count)||0);const remaining=g.mode==='practice'?null:Math.max(0,g.maxAttempts-count);
+   return resp({count,locked:g.mode==='assessment'&&(remaining===0),remaining,grading:g,day:denverDay(),resetTimezone:'America/Denver'});
   }
   if(path==='submit'){
    if(req.method!=='POST')return error('Method not allowed',405);
@@ -183,7 +186,7 @@ export default async function handler(req){
    if(!validStudent(firstName,classPeriod))return error('Enter your first name and select a class period');
    const catalog=await loadCatalog();if(!Array.isArray(edges))return error('No valid connection list received. No attempt was used.',400);const issue=validateStudentWires(nodes||[],edges,catalog);if(issue)return error(issue+' No attempt was used.',400);const mapped=matchStudentCanvas(a,nodes,edges);if(mapped.error)return error(mapped.error+' No attempt was used.',400);const gradedEdges=mapped.edges;
    const g=gradingFor(a),key=attemptKey(a.id,firstName,classPeriod),prev=await attemptsStore().get(key,{type:'json'})||{count:0,locked:false};
-   if(g.mode==='assessment'&&(prev.locked||prev.count>=g.maxAttempts))return error('No graded attempts remaining. Ask your teacher for help.',403);
+   if(g.mode==='assessment'&&(prev.count>=g.maxAttempts))return error('No graded attempts remaining. Ask your teacher for help.',403);
    const expected=new Set(a.key.map(canon)),actual=new Set(gradedEdges.map(canon));const correct=[...actual].filter(k=>expected.has(k)).length;
    // 30% equipment identification + 70% connection accuracy. Extra incorrect
    // equipment or wires reduce precision; empty/incomplete submissions get partial credit.
@@ -207,19 +210,13 @@ export default async function handler(req){
   if(!teacherAuth(req))return error('Teacher login required',401);
   if(path==='reset-attempts'){
    if(req.method!=='POST')return error('Method not allowed',405);
-   const {id,firstName,classPeriod,requirePerfectFirst=true}=await jsonSize(req);
+   const {id,firstName,classPeriod}=await jsonSize(req);
    if(!/^[a-zA-Z0-9_-]{1,60}$/.test(String(id||''))||!validStudent(firstName,classPeriod))return error('Valid assignment, first name and class are required');
    const a=await getAssignment(id);if(!a)return error('Assignment not found',404);
    const key=attemptKey(id,firstName,classPeriod),prior=await attemptsStore().get(key,{type:'json'});
-   if(!prior||!prior.count)return error('There are no attempts to reset today',400);
-   if(requirePerfectFirst){
-    const batches=[];let cursor;do{const batch=await submissionStore().list({prefix:'r_',cursor});batches.push(...batch.blobs);cursor=batch.cursor}while(cursor&&batches.length<1000);
-    const rows=(await Promise.all(batches.map(x=>submissionStore().get(x.key,{type:'json'})))).filter(Boolean);
-    const match=rows.some(r=>r.assignment===id&&r.firstName.trim().toLocaleLowerCase('en')===firstName.trim().toLocaleLowerCase('en')&&r.classPeriod===classPeriod&&r.gradingDay===denverDay()&&r.attempt===1&&r.rawScore===100);
-    if(!match)return error('Only a perfect first attempt can be reset with this option. Previous grades were not changed.',403);
-   }
+   if(!prior||!prior.count)return resp({ok:true,day:denverDay(),message:'No attempts recorded today; this student already has a fresh attempt window.'});
    await attemptsStore().setJSON(key,{count:0,locked:false,updatedAt:new Date().toISOString(),resetByTeacher:true});
-   return resp({ok:true,day:denverDay(),message:'Attempts reset for today. Recorded grades remain in Results.'});
+   return resp({ok:true,day:denverDay(),message:'Attempts reset. This student can start again at attempt 1 today. Previous grades remain in Results.'});
   }
   if(path==='catalog')return resp(await loadCatalog());
   if(path==='save-catalog'){
