@@ -218,6 +218,34 @@ export default async function handler(req){
    await attemptsStore().setJSON(key,{count:0,locked:false,updatedAt:new Date().toISOString(),resetByTeacher:true});
    return resp({ok:true,day:denverDay(),message:'Attempts reset. This student can start again at attempt 1 today. Previous grades remain in Results.'});
   }
+  if(path==='clear-grades'){
+   if(req.method!=='POST')return error('Method not allowed',405);
+   const {id,firstName,classPeriod,confirmation}=await jsonSize(req);
+   if(!/^[a-zA-Z0-9_-]{1,60}$/.test(String(id||''))||!validStudent(firstName,classPeriod))return error('Valid assignment, first name and class are required');
+   if(confirmation!=='DELETE GRADES')return error('Confirmation required');
+   if(!await getAssignment(id))return error('Assignment not found',404);
+   // Read all result pages, not only the 300 displayed on the dashboard.
+   const keys=[];let cursor;
+   do{
+    const page=await submissionStore().list({prefix:'r_',cursor});
+    keys.push(...page.blobs.map(x=>x.key));cursor=page.cursor;
+   }while(cursor);
+   const normalized=firstName.trim().normalize('NFC').toLocaleLowerCase('en');
+   let deleted=0;
+   for(let i=0;i<keys.length;i+=40){
+    const chunk=keys.slice(i,i+40);
+    const records=await Promise.all(chunk.map(k=>submissionStore().get(k,{type:'json'})));
+    for(let j=0;j<chunk.length;j++){
+     const record=records[j];
+     if(record?.assignment===id&&record.classPeriod===classPeriod&&String(record.firstName||'').trim().normalize('NFC').toLocaleLowerCase('en')===normalized){
+      await submissionStore().delete(chunk[j]);deleted++;
+     }
+    }
+   }
+   // Reset today's attempts too, so cleared scores can be replaced immediately.
+   await attemptsStore().setJSON(attemptKey(id,firstName,classPeriod),{count:0,locked:false,updatedAt:new Date().toISOString(),resetByTeacher:true,gradesCleared:true});
+   return resp({ok:true,deleted,message:`Deleted ${deleted} recorded grade(s) for this student and assignment, and reset today's attempts to 0.`});
+  }
   if(path==='catalog')return resp(await loadCatalog());
   if(path==='save-catalog'){
    if(req.method!=='POST')return error('Method not allowed',405);

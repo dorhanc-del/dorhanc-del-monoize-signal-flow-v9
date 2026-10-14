@@ -31,3 +31,7 @@ The teacher can reset a student’s attempts for any assignment at any time (no 
 
 ## V10.10 disconnect fix
 Corrected missing `Board.removeLink()` handler and re-enabled cable SVG pointer hit testing. Every connection row now has a labeled Disconnect button. This does not consume an attempt or clear other wires.
+
+
+## V10.11 — Clear grades & restart
+Teacher Studio → Grades & Results now offers **Clear grades & restart** per student/assignment, both from a grade row and via the student reset fields. Confirmation requires typing `DELETE GRADES`. This deletes ALL recorded results for that student + assignment (including earlier days), resets today's attempt count, and does not affect other students or assignments. Unlike Reset attempts, deletion is permanent. Download a CSV backup first if needed.
