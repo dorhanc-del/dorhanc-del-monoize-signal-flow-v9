@@ -218,6 +218,23 @@ export default async function handler(req){
    await attemptsStore().setJSON(key,{count:0,locked:false,updatedAt:new Date().toISOString(),resetByTeacher:true});
    return resp({ok:true,day:denverDay(),message:'Attempts reset. This student can start again at attempt 1 today. Previous grades remain in Results.'});
   }
+  if(path==='delete-all-grades'){
+   if(req.method!=='POST')return error('Method not allowed',405);
+   const {confirmation}=await jsonSize(req);
+   if(confirmation!=='DELETE ALL GRADES')return error('Explicit confirmation required',400);
+   // Teacher-only: remove every recorded grade and every historical attempt counter.
+   // Leave assignments, answer keys, gear, and uploaded images untouched.
+   let deletedGrades=0,deletedAttempts=0;
+   for(const [store,prefix,kind] of [[submissionStore(),'r_','grades'],[attemptsStore(),'a_','attempts']]){
+    let cursor;
+    do{
+     const page=await store.list({prefix,cursor});
+     for(const entry of page.blobs){await store.delete(entry.key);if(kind==='grades')deletedGrades++;else deletedAttempts++;}
+     cursor=page.cursor;
+    }while(cursor);
+   }
+   return resp({ok:true,deletedGrades,deletedAttempts,message:`Deleted ${deletedGrades} grades and reset all student attempts. Assignments and equipment were preserved.`});
+  }
   if(path==='clear-grades'){
    if(req.method!=='POST')return error('Method not allowed',405);
    const {id,firstName,classPeriod,confirmation}=await jsonSize(req);

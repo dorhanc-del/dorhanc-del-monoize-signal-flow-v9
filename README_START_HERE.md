@@ -35,3 +35,7 @@ Corrected missing `Board.removeLink()` handler and re-enabled cable SVG pointer 
 
 ## V10.11 — Clear grades & restart
 Teacher Studio → Grades & Results now offers **Clear grades & restart** per student/assignment, both from a grade row and via the student reset fields. Confirmation requires typing `DELETE GRADES`. This deletes ALL recorded results for that student + assignment (including earlier days), resets today's attempt count, and does not affect other students or assignments. Unlike Reset attempts, deletion is permanent. Download a CSV backup first if needed.
+
+
+## V10.12: Delete all grades
+Teacher Studio → Grades & Results now has one Delete All Grades button with an Are you sure? confirmation. This permanently clears all students’ saved grades across every assignment and all attempt counters. It does not delete assignments, equipment, or answer keys. Export CSV first if you need a backup.

@@ -103,7 +103,7 @@ function gradeExplanation(x){
  pieces.push(`Recorded: ${x.score}%`);
  return pieces.join(' · ');
 }
-async function refreshResults(){try{const r=await api('results');results=r.results;$('resultsRows').innerHTML=results.map(x=>`<tr><td>${esc(new Date(x.submittedAt).toLocaleString())}</td><td>${esc(x.title)}</td><td>${esc(x.firstName||x.alias||'')}</td><td>${esc(x.classPeriod||'Legacy')}</td><td>${esc(x.mode||'assessment')}</td><td>${x.attempt||1}</td><td><b>${x.score}%</b></td><td>${x.penaltyApplied||0}</td><td>${x.correct}/${x.total}</td><td class="gradeExplain">${esc(gradeExplanation(x))}</td><td><button type="button" class="resetGradeAttempts" data-id="${esc(x.assignment||'')}" data-name="${esc(x.firstName||'')}" data-class="${esc(x.classPeriod||'')}">Reset attempts</button> <button type="button" class="clearStudentGrades" data-id="${esc(x.assignment||'')}" data-name="${esc(x.firstName||'')}" data-class="${esc(x.classPeriod||'')}">Clear grades & restart</button></td></tr>`).join('');say('resultsFeedback',results.length+' recorded submissions. Grades use a 50% floor on new submissions; earlier records retain their previously recorded grades.')}catch(e){say('resultsFeedback',e.message,false)}}
+async function refreshResults(){try{const r=await api('results');results=r.results;$('resultsRows').innerHTML=results.map(x=>`<tr><td>${esc(new Date(x.submittedAt).toLocaleString())}</td><td>${esc(x.title)}</td><td>${esc(x.firstName||x.alias||'')}</td><td>${esc(x.classPeriod||'Legacy')}</td><td>${esc(x.mode||'assessment')}</td><td>${x.attempt||1}</td><td><b>${x.score}%</b></td><td>${x.penaltyApplied||0}</td><td>${x.correct}/${x.total}</td><td class="gradeExplain">${esc(gradeExplanation(x))}</td><td><button type="button" class="resetGradeAttempts" data-id="${esc(x.assignment||'')}" data-name="${esc(x.firstName||'')}" data-class="${esc(x.classPeriod||'')}">Reset attempts</button></td></tr>`).join('');say('resultsFeedback',results.length+' recorded submissions. Grades use a 50% floor on new submissions; earlier records retain their previously recorded grades.')}catch(e){say('resultsFeedback',e.message,false)}}
 $('refreshResults').onclick=refreshResults;
 $('downloadCsv').onclick=()=>{const rows=[['Date','Assignment','First name','Class period','Mode','Attempt','Score','Penalty','Correct','Total','Grade explanation','Raw score','Pre-floor score','Equity floor applied'],...results.map(r=>[r.submittedAt,r.title,r.firstName||r.alias||'',r.classPeriod||'Legacy',r.mode||'assessment',r.attempt||1,r.score,r.penaltyApplied||0,r.correct,r.total,gradeExplanation(r),r.rawScore??r.score,r.calculatedScore??Math.max(0,Number(r.rawScore??r.score)-Number(r.penaltyApplied||0)),r.gradeFloorApplied??false])];const csv=rows.map(row=>row.map(v=>'"'+String(v).replace(/^[=+@-]/,"' $&").replace(/"/g,'""')+'"').join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));const a=document.createElement('a');a.href=url;a.download='monoize-results.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
 init();
@@ -115,19 +115,14 @@ async function resetStudentAttempts(id,firstName,classPeriod){
  catch(e){say('attemptResetFeedback',e.message,false)}
 }
 $('resetAttempts').onclick=()=>resetStudentAttempts($('resetAssignment').value.trim(),$('resetFirstName').value.trim(),$('resetClass').value);
-async function clearStudentGrades(id,firstName,classPeriod){
- if(!id||!firstName||!classPeriod){say('attemptResetFeedback','Choose a valid assignment, first name, and class.',false);return;}
- const message=`This permanently deletes ALL saved grades (including previous days) for ${firstName} (${classPeriod}) on assignment ${id}, and resets attempts. This cannot be undone.\n\nType DELETE GRADES to confirm:`;
- if(prompt(message)!=='DELETE GRADES')return;
+$('deleteAllGrades').onclick=async()=>{
+ if(!confirm('Are you sure you want to permanently DELETE ALL grades for ALL students and assignments? This cannot be undone.'))return;
  try{
-  const r=await api('clear-grades',{id,firstName,classPeriod,confirmation:'DELETE GRADES'});
+  const r=await api('delete-all-grades',{confirmation:'DELETE ALL GRADES'});
   await refreshResults();say('attemptResetFeedback',r.message,true);
  }catch(e){say('attemptResetFeedback',e.message,false)}
-}
-$('clearGrades').onclick=()=>clearStudentGrades($('resetAssignment').value.trim(),$('resetFirstName').value.trim(),$('resetClass').value);
+};
 $('resultsRows').addEventListener('click',e=>{
- const clear=e.target.closest('button.clearStudentGrades');
- if(clear){clearStudentGrades(clear.dataset.id,clear.dataset.name,clear.dataset.class);return;}
  const reset=e.target.closest('button.resetGradeAttempts');
  if(reset)resetStudentAttempts(reset.dataset.id,reset.dataset.name,reset.dataset.class);
 });
