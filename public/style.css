@@ -35,3 +35,11 @@ body{background:#070707}
 .choices .acousticSymbol{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:38px;color:#152437}
 .choices .acousticSymbol small{font-size:12px;font-weight:900;letter-spacing:.05em;color:#152437}
 .gradeExplain{min-width:280px;max-width:440px;font-size:12px;line-height:1.45}
+
+/* Enable hit-testing on cable paths while retaining draggable device cards above the wiring. */
+.wire path[role="button"]{pointer-events:stroke;cursor:pointer}
+.node{z-index:2}
+.disconnectWire{padding:5px 9px;white-space:nowrap;background:#4e2932;border-color:#a96670;color:white;font-weight:700}
+.disconnectWire:hover{background:#68333d}
+
+.wire{pointer-events:auto}

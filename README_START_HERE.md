@@ -27,3 +27,7 @@ The changes have been syntax and package-checked, but not verified against your 
 
 ## V10.9 — Teacher reset from Grades & Results
 The teacher can reset a student’s attempts for any assignment at any time (no 100% first-attempt requirement). Enter assignment ID, first name, class period or click Reset attempts beside an existing grade. Only the current Denver-day attempt counter is reset. Historical submissions and grades are retained. This reset does not alter a prior score or reset other students.
+
+
+## V10.10 disconnect fix
+Corrected missing `Board.removeLink()` handler and re-enabled cable SVG pointer hit testing. Every connection row now has a labeled Disconnect button. This does not consume an attempt or clear other wires.
