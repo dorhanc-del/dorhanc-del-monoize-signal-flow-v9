@@ -24,7 +24,7 @@ const baseCatalog=[
  {id:'dj',name:'DJ Source',category:'source',image:'/images/dj-source-card.png',inputs:[],outputs:[{name:'RCA stereo output',types:['RCA']}]},
  {id:'ipad',name:'iPad',category:'source',image:'/images/ipad-card.png',inputs:[],outputs:[{name:'USB-C audio out',types:['USB']}]},
  {id:'adapter',name:'USB-C Audio Adapter',category:'gear',image:'/images/usbc-adapter-card.png',inputs:[{name:'USB-C input',types:['USB']}],outputs:[{name:'3.5mm audio output',types:['HYBRID']}]},
- {id:'interface',name:'Audio Interface',category:'gear',image:'/images/audio-interface.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'Stereo line output',types:['TRS']},{name:'USB output',types:['USB']}]},
+ {id:'interface',name:'Audio Interface',category:'gear',image:'/images/audio-interface.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'Stereo line output',types:['TRS','TS']},{name:'USB output',types:['USB']}]},
  {id:'mixer',name:'Audio Mixer',category:'gear',image:'/images/mixer.svg',inputs:[{name:'Mic 1',types:['XLR']},{name:'Mic 2',types:['XLR']},{name:'Line A',types:['TRS','TS','RCA','HYBRID']},{name:'Line B',types:['TRS','TS','RCA','HYBRID']}],outputs:[{name:'Main line output',types:['TRS']}]},
  {id:'rodecaster',name:'RØDECaster Pro II (Mixer / Interface)',category:'gear',image:'/images/rodecaster-pro-ii.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 3 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 4 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'USB audio interface out',types:['USB']},{name:'Main TRS output',types:['TRS']}]},
  {id:'laptop',name:'Laptop',category:'destination',image:'/images/laptop-card.png',inputs:[{name:'USB input',types:['USB']}],outputs:[]},
@@ -53,6 +53,7 @@ function upgradeLegacyBuiltins(gear){return gear.map(item=>{
   if(/^Combo input [1-4](?:$|\s|\()/i.test(p.name)&&p.types.includes('XLR')&&p.types.includes('TS')&&!p.types.includes('TRS'))p.types.push('TRS');
   if(/^Combo input [1-4]$/i.test(p.name))p.name+=' (mic / line / instrument)';
  });
+ if(item.id==='interface')next.outputs.forEach(p=>{if(/^Stereo line output/i.test(p.name)&&p.types.includes('TRS')&&!p.types.includes('TS'))p.types.push('TS')});
  // Four RØDECaster Pro II combo inputs. Migrate the older placeholder third port.
  if(item.id==='rodecaster'&&next.inputs.length===3&&next.inputs[2].name==='Line input'&&next.inputs[2].types.join(',')==='TRS'){
    next.inputs[2]={name:'Combo input 3 (mic / line / instrument)',types:['XLR','TRS','TS']};
@@ -86,7 +87,8 @@ function diagnoseEdges(a,edges,catalog){
   if(!out)return `Connection ${number}: ${fs.name} output ${Number(e.fi)+1} is missing from the current library. Your teacher should check its saved ports.`;
   if(!inn)return `Connection ${number}: ${ts.name} input ${Number(e.ti)+1} is missing from the current library. Your teacher should check its saved ports.`;
   if(!cables.has(e.cable))return `Connection ${number} refers to a cable no longer in the equipment library.`;
-  if(!out.types.includes(e.cable)||!inn.types.includes(e.cable))return `Connection ${number}: ${fs.name} (${out.name}) to ${ts.name} (${inn.name}) cannot use ${e.cable}. Check the ports in Teacher Studio.`;
+  // In student assessment mode, wrong connector choices are scored, not rejected.
+  // Port compatibility is checked against the saved teacher answer key during grading.
   const ip=`${e.to}:${e.ti}`,op=`${e.from}:${e.fi}`;
   if(usedInputs.has(ip))return `Connection ${number}: ${ts.name} input ${inn.name} is already connected.`;
   if(usedOutputs.has(op))return `Connection ${number}: ${fs.name} output ${out.name} is already connected.`;
@@ -97,27 +99,47 @@ function diagnoseEdges(a,edges,catalog){
 // Match student canvas nodes to assignment device slots by equipment type.
 // This is necessary when a student removes a card and adds it back: the UI assigns a new node ID.
 // Prefer exact saved IDs, then pair remaining instances of the same equipment type.
+// Match any student-selected equipment against the teacher's slots. Wrong/missing devices
+// are valid submissions and lower the grade instead of blocking submission.
 function matchStudentCanvas(a,submittedNodes,edges){
- if(!Array.isArray(submittedNodes)||submittedNodes.length>45||submittedNodes.length===0)return {error:'Reload the assignment: the student canvas was not sent.'};
- if(!Array.isArray(a.nodes)||a.nodes.length===0)return {error:'This assignment has no saved equipment layout. Ask your teacher to add devices and save again.'};
- const wanted=new Map();for(const n of a.nodes)wanted.set(n.type,(wanted.get(n.type)||0)+1);
- const actual=new Map();const ids=new Set();
+ if(!Array.isArray(submittedNodes)||submittedNodes.length>45)return {error:'Invalid student equipment list.'};
+ if(!Array.isArray(a.nodes)||!a.nodes.length)return {error:'This assignment has no saved teacher layout. Ask the teacher to save an exemplar.'};
+ if(!Array.isArray(edges)||edges.length>100)return {error:'Invalid connection list.'};
+ const ids=new Set();
  for(const n of submittedNodes){
-  if(!n||typeof n.id!=='string'||typeof n.type!=='string'||ids.has(n.id)||!/^[a-zA-Z0-9_-]{1,60}$/.test(n.id))return {error:'Duplicate or invalid equipment IDs on the canvas. Reload the assignment.'};
-  ids.add(n.id);actual.set(n.type,(actual.get(n.type)||0)+1);
-  if(!a.allowed.includes(n.type))return {error:'Your canvas contains a device that is not allowed for this assignment.'};
+  if(!n||typeof n.id!=='string'||typeof n.type!=='string'||ids.has(n.id)||!/^[a-zA-Z0-9_-]{1,60}$/.test(n.id))return {error:'Duplicate or invalid equipment IDs.'};
+  ids.add(n.id);
+  if(!a.allowed.includes(n.type))return {error:'Equipment outside the assigned equipment bank.'};
  }
- // The number of devices must agree with the teacher's assignment; this prevents a replacement device from getting free credit.
- if(submittedNodes.length!==a.nodes.length||[...wanted].some(([type,count])=>actual.get(type)!==count))return {error:'Your equipment does not match the assignment. Reset the layout and use the required device cards.'};
- const assigned=new Set(),mapping=new Map(),studentById=new Map(submittedNodes.map(n=>[n.id,n]));
- for(const n of submittedNodes){const original=a.nodes.find(t=>t.id===n.id&&t.type===n.type);if(original){mapping.set(n.id,original.id);assigned.add(original.id)}}
- for(const n of submittedNodes){if(mapping.has(n.id))continue;const slot=a.nodes.find(t=>t.type===n.type&&!assigned.has(t.id));if(!slot)return {error:'Unable to match a device to the answer key.'};mapping.set(n.id,slot.id);assigned.add(slot.id)}
+ const assigned=new Set(),mapping=new Map();
+ for(const n of submittedNodes){
+  const slot=a.nodes.find(t=>t.type===n.type&&!assigned.has(t.id));
+  if(slot){mapping.set(n.id,slot.id);assigned.add(slot.id)}
+ }
  const mapped=[];
  for(const e of edges){
-  if(!e||!studentById.has(e.from)||!studentById.has(e.to))return {error:'A connection points to a removed device. Remove the wire or reset the layout.'};
-  mapped.push({...e,from:mapping.get(e.from),to:mapping.get(e.to)});
+  if(!e||!ids.has(e.from)||!ids.has(e.to))return {error:'A wire points to a missing device.'};
+  mapped.push({...e,from:mapping.get(e.from)||'unmatched_'+e.from,to:mapping.get(e.to)||'unmatched_'+e.to});
  }
- return {edges:mapped};
+ return {edges:mapped,matchedDevices:assigned.size,studentCount:submittedNodes.length};
+}
+
+function validateStudentWires(nodes,edges,catalog){
+ const byNode=new Map(nodes.map(n=>[n.id,n]));
+ const gear=new Map(catalog.gear.map(g=>[g.id,g]));
+ const cables=new Set(catalog.cables.map(c=>c.id));
+ const inputs=new Set(),outputs=new Set();
+ for(const e of edges){
+  const from=byNode.get(e.from),to=byNode.get(e.to);
+  if(!from||!to||e.from===e.to)return 'A connection has a missing or identical device.';
+  const out=gear.get(from.type)?.outputs?.[e.fi],inn=gear.get(to.type)?.inputs?.[e.ti];
+  if(!out||!inn)return 'A connection references a port that does not exist. Reload and check your equipment.';
+  if(!cables.has(e.cable))return 'A selected cable is no longer in the cable bank.';
+  const ik=e.to+':'+e.ti,ok=e.from+':'+e.fi;
+  if(inputs.has(ik)||outputs.has(ok))return 'One input or output has multiple wires; disconnect one before submitting.';
+  inputs.add(ik);outputs.add(ok);
+ }
+ return null;
 }
 
 function checkEdges(a,edges,catalog){return diagnoseEdges(a,edges,catalog)===null;}
@@ -159,20 +181,24 @@ export default async function handler(req){
    if(req.method!=='POST')return error('Method not allowed',405);
    const {id,edges,nodes,firstName,classPeriod}=await jsonSize(req);const a=await getAssignment(String(id||''));if(!a||!a.published)return error('Assignment unavailable',404);
    if(!validStudent(firstName,classPeriod))return error('Enter your first name and select a class period');
-   const catalog=await loadCatalog();if(!Array.isArray(edges))return error('No valid connection list received. No attempt was used.',400);const mapped=matchStudentCanvas(a,nodes,edges);if(mapped.error)return error(mapped.error+' No attempt was used.',400);const gradedEdges=mapped.edges;const issue=diagnoseEdges(a,gradedEdges,catalog);if(issue)return error(issue+' No attempt was used.',400);
+   const catalog=await loadCatalog();if(!Array.isArray(edges))return error('No valid connection list received. No attempt was used.',400);const issue=validateStudentWires(nodes||[],edges,catalog);if(issue)return error(issue+' No attempt was used.',400);const mapped=matchStudentCanvas(a,nodes,edges);if(mapped.error)return error(mapped.error+' No attempt was used.',400);const gradedEdges=mapped.edges;
    const g=gradingFor(a),key=attemptKey(a.id,firstName,classPeriod),prev=await attemptsStore().get(key,{type:'json'})||{count:0,locked:false};
    if(g.mode==='assessment'&&(prev.locked||prev.count>=g.maxAttempts))return error('No graded attempts remaining. Ask your teacher for help.',403);
    const expected=new Set(a.key.map(canon)),actual=new Set(gradedEdges.map(canon));const correct=[...actual].filter(k=>expected.has(k)).length;
-   const rawScore=expected.size?Math.round(100*correct/expected.size):0;
+   // 30% equipment identification + 70% connection accuracy. Extra incorrect
+   // equipment or wires reduce precision; empty/incomplete submissions get partial credit.
+   const equipmentAccuracy= a.nodes.length ? mapped.matchedDevices/Math.max(a.nodes.length,mapped.studentCount) : 0;
+   const cableAccuracy= expected.size ? correct/Math.max(expected.size,actual.size) : 0;
+   const rawScore=Math.round(100*(.30*equipmentAccuracy+.70*cableAccuracy));
    const calculatedScore=g.mode==='practice'?rawScore:Math.max(0,rawScore-prev.count*g.penalty);
    const score=Math.max(50,calculatedScore); // DPS-equity configured floor on recorded grades; raw score retained
-   const count=prev.count+1,complete=correct===expected.size&&actual.size===expected.size;
+   const count=prev.count+1,complete=correct===expected.size&&actual.size===expected.size&&mapped.matchedDevices===a.nodes.length&&mapped.studentCount===a.nodes.length;
    const locked=g.mode==='assessment'&&g.lockAfter&&count>=g.maxAttempts;
-   const record={id:randomUUID(),assignment:a.id,title:a.title,firstName:firstName.trim(),classPeriod,score,calculatedScore,gradeFloor:50,gradeFloorApplied:calculatedScore<50,rawScore,penaltyApplied:g.mode==='practice'?0:prev.count*g.penalty,attempt:count,gradingDay:denverDay(),mode:g.mode,complete,correct,total:expected.size,submittedAt:new Date().toISOString()};
+   const record={id:randomUUID(),assignment:a.id,title:a.title,firstName:firstName.trim(),classPeriod,score,calculatedScore,gradeFloor:50,gradeFloorApplied:calculatedScore<50,rawScore,penaltyApplied:g.mode==='practice'?0:prev.count*g.penalty,attempt:count,gradingDay:denverDay(),mode:g.mode,complete,correct,total:expected.size,equipmentCorrect:mapped.matchedDevices,equipmentTotal:a.nodes.length,submittedAt:new Date().toISOString()};
    await attemptsStore().setJSON(key,{count,locked,lastScore:score,updatedAt:record.submittedAt});
    await submissionStore().setJSON('r_'+record.id,record);
    const remaining=g.mode==='practice'?null:Math.max(0,g.maxAttempts-count);
-   const general=complete?'All required connections are correct.':'Some connections need work. Review your full signal path.';
+   const general=complete?'All required equipment and connections are correct.':'Some devices or connections need work. Review your signal flow.';
    let hint=general;
    if(g.feedback==='hints'&&!complete)hint+=` You have ${Math.max(0,expected.size-correct)} missing or incorrect required connection(s).`;
    if(g.feedback==='detailed'&&!complete)hint+=` ${[...actual].filter(x=>!expected.has(x)).length} submitted wire(s) do not match the answer key.`;
