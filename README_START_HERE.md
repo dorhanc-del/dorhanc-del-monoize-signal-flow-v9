@@ -1,6 +1,6 @@
-# Monoize V11.4 — RØDECaster ports, answer-key privacy, neutral wires
+# Monoize V11.5 — Left/right ports (includes V11.4)
 
-Small update. Needs V11.3 installed.
+Small update. Needs V11.3 installed. Includes everything from V11.4, so you do not need to install V11.4 separately.
 
 Changed files:
 - `netlify/functions/api.mjs`
@@ -9,6 +9,7 @@ Changed files:
 - `README_START_HERE.md`
 
 What changed:
+0. **Left and right ports (V11.5).** DJ Source now has RCA out L and R. Audio Interface has Line Out L and R (plus USB). Audio Mixer has Line A (left) and Line B (right) inputs and Main Out L and R. PA Speakers and Studio Monitors each have a Left speaker input and a Right speaker input. A stereo chain now needs a wire to each side. Existing port positions are kept, so saved answer keys still match, but an old answer key that used ONE wire into a speaker or mixer will now be missing the second wire. Open those assignments in Teacher Studio and re-save the exemplar. Custom ports are left alone.
 1. **RØDECaster Pro II ports.** It now has USB-C 1, Main Out L, Main Out R and USB-C 2. A correct chain to two speakers uses two separate speaker cables. Old stock ports keep their positions (port 1 = USB, port 2 = main out), so saved assignments and answer keys still match. Custom port edits made in Teacher Studio are left alone.
 2. **Answer-key privacy.** The public assignment data no longer includes the teacher's exemplar device layout. Grading is unchanged.
 3. **Neutral student wires.** Before submission every student wire is one neutral color, so wire color cannot reveal the cable type. After submission, and always in Teacher Studio, wires use the cable colors again.

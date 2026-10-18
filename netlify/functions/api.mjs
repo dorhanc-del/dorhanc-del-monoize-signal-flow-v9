@@ -21,15 +21,15 @@ const baseCatalog=[
  {id:'wirelessMic',name:'Wireless Microphone',category:'source',image:'/images/dji-wireless-mic.png',inputs:[{name:'Sound in',types:['ACOUSTIC']}],outputs:[{name:'Wireless transmitter',types:['WIRELESS']}]},
  {id:'wirelessRx',name:'Wireless Receiver (XLR out)',category:'gear',image:'/images/dji-wireless-receiver.png',inputs:[{name:'Wireless receiver',types:['WIRELESS']}],outputs:[{name:'XLR output',types:['XLR']}]},
  {id:'guitar',name:'Electric Guitar',category:'source',image:'/images/electric-guitar-card.png',inputs:[],outputs:[{name:'Instrument output',types:['TS']}]},
- {id:'dj',name:'DJ Source',category:'source',image:'/images/dj-source-card.png',inputs:[],outputs:[{name:'RCA stereo output',types:['RCA']}]},
+ {id:'dj',name:'DJ Source',category:'source',image:'/images/dj-source-card.png',inputs:[],outputs:[{name:'RCA out L (left)',types:['RCA']},{name:'RCA out R (right)',types:['RCA']}]},
  {id:'ipad',name:'iPad',category:'source',image:'/images/ipad-card.png',inputs:[],outputs:[{name:'USB-C audio out',types:['USB']}]},
  {id:'adapter',name:'USB-C Audio Adapter',category:'gear',image:'/images/usbc-adapter-card.png',inputs:[{name:'USB-C input',types:['USB']}],outputs:[{name:'3.5mm audio output',types:['HYBRID']}]},
- {id:'interface',name:'Audio Interface',category:'gear',image:'/images/audio-interface.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'Stereo line output',types:['TRS','TS']},{name:'USB output',types:['USB']}]},
- {id:'mixer',name:'Audio Mixer',category:'gear',image:'/images/mixer.svg',inputs:[{name:'Mic 1',types:['XLR']},{name:'Mic 2',types:['XLR']},{name:'Line A',types:['TRS','TS','RCA','HYBRID']},{name:'Line B',types:['TRS','TS','RCA','HYBRID']}],outputs:[{name:'Main line output',types:['TRS','TS']}]},
- {id:'rodecaster',name:'RØDECaster Pro II (Mixer / Interface)',category:'gear',image:'/images/rodecaster-pro-ii.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 3 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 4 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'USB-C 1 (computer)',types:['USB']},{name:'Main Out L (1/4")',types:['TRS','TS']},{name:'Main Out R (1/4")',types:['TRS','TS']},{name:'USB-C 2 (computer or phone)',types:['USB']}]},
+ {id:'interface',name:'Audio Interface',category:'gear',image:'/images/audio-interface.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'Line Out L (left)',types:['TRS','TS']},{name:'USB output',types:['USB']},{name:'Line Out R (right)',types:['TRS','TS']}]},
+ {id:'mixer',name:'Audio Mixer',category:'gear',image:'/images/mixer.svg',inputs:[{name:'Mic 1',types:['XLR']},{name:'Mic 2',types:['XLR']},{name:'Line A (left)',types:['TRS','TS','RCA','HYBRID']},{name:'Line B (right)',types:['TRS','TS','RCA','HYBRID']}],outputs:[{name:'Main Out L (left)',types:['TRS','TS']},{name:'Main Out R (right)',types:['TRS','TS']}]},
+ {id:'rodecaster',name:'RØDECaster Pro II (Mixer / Interface)',category:'gear',image:'/images/rodecaster-pro-ii.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 3 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 4 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'USB-C 1 (computer)',types:['USB']},{name:'Main Out L (left)',types:['TRS','TS']},{name:'Main Out R (right)',types:['TRS','TS']},{name:'USB-C 2 (computer or phone)',types:['USB']}]},
  {id:'laptop',name:'Laptop',category:'destination',image:'/images/laptop-card.png',inputs:[{name:'USB input',types:['USB']}],outputs:[]},
- {id:'speaker',name:'PA Speakers',category:'destination',image:'/images/pa-system-card.png',inputs:[{name:'Line input',types:['TRS','RCA']}],outputs:[]},
- {id:'monitors',name:'Studio Monitors',category:'destination',image:'/images/studio-monitors-card.png',inputs:[{name:'Line input',types:['TRS','RCA']}],outputs:[]}
+ {id:'speaker',name:'PA Speakers',category:'destination',image:'/images/pa-system-card.png',inputs:[{name:'Left speaker input',types:['TRS','RCA']},{name:'Right speaker input',types:['TRS','RCA']}],outputs:[]},
+ {id:'monitors',name:'Studio Monitors',category:'destination',image:'/images/studio-monitors-card.png',inputs:[{name:'Left speaker input',types:['TRS','RCA']},{name:'Right speaker input',types:['TRS','RCA']}],outputs:[]}
 ];
 const baseCables=[
  {id:'ACOUSTIC',name:'Acoustic sound',image:'',color:'#cbd5e1'},
@@ -64,11 +64,27 @@ function upgradeLegacyBuiltins(gear){return gear.map(item=>{
  // V11.4: RØDECaster Pro II has two USB-C ports and two separate balanced 1/4" main outputs (L and R).
  // Old stock ports keep their positions (0 = USB, 1 = main) so saved answer keys still match; new ports are appended.
  if(item.id==='rodecaster'&&next.outputs.length===2&&next.outputs[0].name==='USB audio interface out'&&next.outputs[1].name==='Main TRS output'){
-  next.outputs=[{name:'USB-C 1 (computer)',types:['USB']},{name:'Main Out L (1/4")',types:['TRS','TS']},{name:'Main Out R (1/4")',types:['TRS','TS']},{name:'USB-C 2 (computer or phone)',types:['USB']}];
+  next.outputs=[{name:'USB-C 1 (computer)',types:['USB']},{name:'Main Out L (left)',types:['TRS','TS']},{name:'Main Out R (right)',types:['TRS','TS']},{name:'USB-C 2 (computer or phone)',types:['USB']}];
  }
  return next;
 })}
-async function loadCatalog(){return {gear:upgradeLegacyBuiltins(normalizeCatalog(await catalogStore().get('gear',{type:'json'}))),cables:normalizeCables(await catalogStore().get('cables',{type:'json'}))}}
+// V11.5: explicit left/right ports. Only stock port names are migrated, and the old port keeps its position
+// (index) so saved teacher answer keys still match. New right-side ports are appended. Custom ports stay untouched.
+function upgradeStereoPorts(gear){return gear.map(item=>{
+ const cp=l=>(l||[]).map(p=>({...p,types:[...(p.types||[])]}));
+ const next={...item,inputs:cp(item.inputs),outputs:cp(item.outputs)};
+ const o=next.outputs,i=next.inputs;
+ if(item.id==='dj'&&o.length===1&&o[0].name==='RCA stereo output'){next.outputs=[{name:'RCA out L (left)',types:[...o[0].types]},{name:'RCA out R (right)',types:[...o[0].types]}]}
+ if(item.id==='interface'&&o.length===2&&/^Stereo line output/i.test(o[0].name)&&o[1].name==='USB output'){const t=[...o[0].types];next.outputs=[{name:'Line Out L (left)',types:t},o[1],{name:'Line Out R (right)',types:[...t]}]}
+ if(item.id==='mixer'){
+  if(o.length===1&&/^Main (line|TRS) output$/i.test(o[0].name)){const t=[...o[0].types];next.outputs=[{name:'Main Out L (left)',types:t},{name:'Main Out R (right)',types:[...t]}]}
+  i.forEach(p=>{if(p.name==='Line A')p.name='Line A (left)';if(p.name==='Line B')p.name='Line B (right)'});
+ }
+ if(item.id==='rodecaster')o.forEach(p=>{if(p.name==='Main Out L (1/4")')p.name='Main Out L (left)';if(p.name==='Main Out R (1/4")')p.name='Main Out R (right)'});
+ if((item.id==='speaker'||item.id==='monitors')&&i.length===1&&i[0].name==='Line input'){const t=[...i[0].types];next.inputs=[{name:'Left speaker input',types:t},{name:'Right speaker input',types:[...t]}]}
+ return next;
+})}
+async function loadCatalog(){return {gear:upgradeStereoPorts(upgradeLegacyBuiltins(normalizeCatalog(await catalogStore().get('gear',{type:'json'})))),cables:normalizeCables(await catalogStore().get('cables',{type:'json'}))}}
 async function getAssignment(id){return id==='demo'?(await assignmentStore().get('item_demo',{type:'json'})||defaultAssignment):await assignmentStore().get('item_'+id,{type:'json'});}
 const jsonSize=async req=>{const s=await req.text();if(s.length>250000)throw new Error('Request too large');return JSON.parse(s)};
 function sessionSecret(){return process.env.MONOIZE_SESSION_SECRET||''}

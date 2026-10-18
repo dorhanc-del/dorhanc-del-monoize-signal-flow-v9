@@ -1,4 +1,4 @@
-# Monoize Signal Flow — Input & Output Audit (V9.5)
+# Monoize Signal Flow — Input & Output Audit (V11.5)
 
 This is the modeled classroom equipment catalog, **not** a guarantee of every hardware model's physical jacks. The current app validates connector choice at ports, not voltage levels, gain stages, USB host roles, channel count, or phantom power.
 
@@ -10,18 +10,18 @@ This is the modeled classroom equipment catalog, **not** a guarantee of every ha
 | Wireless Mic | Acoustic sound | Wireless signal | Transmitter and receiver must be paired; technology specific |
 | Wireless Receiver | Wireless signal | XLR | Only valid if the **actual receiver** has XLR output (e.g. appropriate pro receiver). A DJI-style receiver often uses 3.5mm output, so don't infer XLR from a photo |
 | Electric Guitar | None | 1/4-inch TS | Instrument-level, usually high impedance |
-| DJ Source | None | RCA stereo | Typically stereo L/R line-level pair; two connectors |
+| DJ Source | None | RCA out L, RCA out R | V11.5: separate left and right ports |
 | iPad | None | USB-C | A compatible USB-C DAC/adapter is needed for analog audio |
 | USB-C Audio Adapter | USB-C | 3.5mm analog output | Stereo 3.5mm TRS to *two* 1/4-inch TS is typical for dual mono mixer line inputs; TRS at each mixer jack can still make contact depending on cabling, hardware |
-| Audio Interface | 2 combo XLR / TRS / TS | TRS L/R, USB | XLR microphone; TRS balanced mono line; TS high-Z instrument on suitably configured inputs; L/R TRS is a pair of balanced outputs, not stereo on one cable |
-| Audio Mixer | 2 XLR mic, 2 line ports supporting TRS/TS/RCA/hybrid in simplified simulator | TRS main | Physical mixer may not accept RCA or hybrid through one socket. Verify exact mixer; line input is not mic preamp input |
+| Audio Interface | 2 combo XLR / TRS / TS | Line Out L, USB, Line Out R | XLR microphone; TRS balanced mono line; TS high-Z instrument on suitably configured inputs; L/R TRS is a pair of balanced outputs, not stereo on one cable |
+| Audio Mixer | 2 XLR mic, Line A (left), Line B (right) supporting TRS/TS/RCA in simplified simulator | Main Out L, Main Out R | Physical mixer may not accept RCA or hybrid through one socket. Verify exact mixer; line input is not mic preamp input |
 | RØDECaster Pro II | 4 combo XLR / TRS / TS | USB-C 1, USB-C 2, Main Out L and Main Out R (two separate balanced 1/4-inch jacks) | V11.4: matches the real two USB-C ports and two main line outputs. The four headphone outputs are not modeled. USB audio is two-way in real life; the model is simplified. |
 | Laptop | USB | None | In reality laptop also sends USB audio *to* compatible audio devices (host role); lab shows only USB destination |
-| PA Speakers | TRS or RCA modeled | None | Many powered speakers have XLR/TRS combo inputs; unpowered speakers require amplifier; stereo has distinct L/R |
-| Studio Monitors | TRS or RCA modeled | None | Model as powered monitor(s) with separate L/R line inputs |
+| PA Speakers | Left speaker input, Right speaker input (TRS or RCA modeled) | None | Many powered speakers have XLR/TRS combo inputs; unpowered speakers require amplifier; stereo has distinct L/R |
+| Studio Monitors | Left speaker input, Right speaker input (TRS or RCA modeled) | None | Model as powered monitor(s) with separate L/R line inputs |
 
 ## Recommended next-phase modeling refinements
-1. Split stereo *pairs* into explicit left and right ports for DJ gear, interfaces, mixers and loudspeakers.
+1. (Done in V11.5) Stereo pairs are explicit left and right ports for DJ gear, interfaces, mixers and loudspeakers.
 2. Distinguish signal types: mic level, instrument/Hi-Z, consumer -10 dBV line, pro +4 dBu line, digital USB, acoustic and wireless RF, separately from connector types.
 3. Require headphone/3.5mm stereo breakout cable mapped to TWO line inputs, rather than pretending a single TRS line port is stereo L/R.
 4. Model phantom power as an optional condenser-mic condition.
