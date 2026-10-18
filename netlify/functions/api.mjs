@@ -25,11 +25,11 @@ const baseCatalog=[
  {id:'ipad',name:'iPad',category:'source',image:'/images/ipad-card.png',inputs:[],outputs:[{name:'USB-C audio out',types:['USB']}]},
  {id:'adapter',name:'USB-C Audio Adapter',category:'gear',image:'/images/usbc-adapter-card.png',inputs:[{name:'USB-C input',types:['USB']}],outputs:[{name:'3.5mm audio output',types:['HYBRID']}]},
  {id:'interface',name:'Audio Interface',category:'gear',image:'/images/audio-interface.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'Line Out L (left)',types:['TRS','TS']},{name:'USB output',types:['USB']},{name:'Line Out R (right)',types:['TRS','TS']}]},
- {id:'mixer',name:'Audio Mixer',category:'gear',image:'/images/mixer.svg',inputs:[{name:'Mic 1',types:['XLR']},{name:'Mic 2',types:['XLR']},{name:'Line A (left)',types:['TRS','TS','RCA','HYBRID']},{name:'Line B (right)',types:['TRS','TS','RCA','HYBRID']}],outputs:[{name:'Main Out L (left)',types:['TRS','TS']},{name:'Main Out R (right)',types:['TRS','TS']}]},
+ {id:'mixer',name:'Audio Mixer',category:'gear',image:'/images/mixer.svg',inputs:[{name:'Mic 1',types:['XLR']},{name:'Mic 2',types:['XLR']},{name:'Line A (left)',types:['TRS','TS','HYBRID']},{name:'Line B (right)',types:['TRS','TS','HYBRID']},{name:'RCA in L (left)',types:['RCA']},{name:'RCA in R (right)',types:['RCA']}],outputs:[{name:'Main Out L (left)',types:['TRS','TS']},{name:'Main Out R (right)',types:['TRS','TS']}]},
  {id:'rodecaster',name:'RØDECaster Pro II (Mixer / Interface)',category:'gear',image:'/images/rodecaster-pro-ii.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 3 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 4 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'USB-C 1 (computer)',types:['USB']},{name:'Main Out L (left)',types:['TRS','TS']},{name:'Main Out R (right)',types:['TRS','TS']},{name:'USB-C 2 (computer or phone)',types:['USB']}]},
  {id:'laptop',name:'Laptop',category:'destination',image:'/images/laptop-card.png',inputs:[{name:'USB input',types:['USB']}],outputs:[]},
- {id:'speaker',name:'PA Speakers',category:'destination',image:'/images/pa-system-card.png',inputs:[{name:'Left speaker input',types:['TRS','RCA']},{name:'Right speaker input',types:['TRS','RCA']}],outputs:[]},
- {id:'monitors',name:'Studio Monitors',category:'destination',image:'/images/studio-monitors-card.png',inputs:[{name:'Left speaker input',types:['TRS','RCA']},{name:'Right speaker input',types:['TRS','RCA']}],outputs:[]}
+ {id:'speaker',name:'PA Speakers',category:'destination',image:'/images/pa-system-card.png',inputs:[{name:'Left speaker input',types:['XLR','TRS','TS']},{name:'Right speaker input',types:['XLR','TRS','TS']}],outputs:[]},
+ {id:'monitors',name:'Studio Monitors',category:'destination',image:'/images/studio-monitors-card.png',inputs:[{name:'Left speaker input',types:['XLR','TRS','TS']},{name:'Right speaker input',types:['XLR','TRS','TS']},{name:'RCA in L (left)',types:['RCA']},{name:'RCA in R (right)',types:['RCA']}],outputs:[]}
 ];
 const baseCables=[
  {id:'ACOUSTIC',name:'Acoustic sound',image:'',color:'#cbd5e1'},
@@ -82,6 +82,12 @@ function upgradeStereoPorts(gear){return gear.map(item=>{
  }
  if(item.id==='rodecaster')o.forEach(p=>{if(p.name==='Main Out L (1/4")')p.name='Main Out L (left)';if(p.name==='Main Out R (1/4")')p.name='Main Out R (right)'});
  if((item.id==='speaker'||item.id==='monitors')&&i.length===1&&i[0].name==='Line input'){const t=[...i[0].types];next.inputs=[{name:'Left speaker input',types:t},{name:'Right speaker input',types:[...t]}]}
+ // V11.5: no combo/line jack accepts RCA. Stock combo ports lose RCA; RCA gets its own separate ports (appended, so old indexes keep their meaning).
+ const stockCombo=p=>/^(Left|Right) speaker input$/.test(p.name)||/^Line [AB] \((left|right)\)$/.test(p.name);
+ if(item.id==='speaker'||item.id==='monitors'||item.id==='mixer'){
+  next.inputs.forEach(p=>{if(stockCombo(p)&&p.types.includes('RCA')){const keep=p.types.filter(x=>x!=='RCA');p.types=(item.id==='mixer')?keep:['XLR','TRS','TS']}});
+  if(item.id!=='speaker'&&!next.inputs.some(p=>/^RCA in /.test(p.name))&&next.inputs.some(stockCombo)){next.inputs.push({name:'RCA in L (left)',types:['RCA']},{name:'RCA in R (right)',types:['RCA']})}
+ }
  return next;
 })}
 async function loadCatalog(){return {gear:upgradeStereoPorts(upgradeLegacyBuiltins(normalizeCatalog(await catalogStore().get('gear',{type:'json'})))),cables:normalizeCables(await catalogStore().get('cables',{type:'json'}))}}
