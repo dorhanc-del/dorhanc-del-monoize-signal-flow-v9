@@ -26,7 +26,7 @@ const baseCatalog=[
  {id:'adapter',name:'USB-C Audio Adapter',category:'gear',image:'/images/usbc-adapter-card.png',inputs:[{name:'USB-C input',types:['USB']}],outputs:[{name:'3.5mm audio output',types:['HYBRID']}]},
  {id:'interface',name:'Audio Interface',category:'gear',image:'/images/audio-interface.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'Stereo line output',types:['TRS','TS']},{name:'USB output',types:['USB']}]},
  {id:'mixer',name:'Audio Mixer',category:'gear',image:'/images/mixer.svg',inputs:[{name:'Mic 1',types:['XLR']},{name:'Mic 2',types:['XLR']},{name:'Line A',types:['TRS','TS','RCA','HYBRID']},{name:'Line B',types:['TRS','TS','RCA','HYBRID']}],outputs:[{name:'Main line output',types:['TRS','TS']}]},
- {id:'rodecaster',name:'RØDECaster Pro II (Mixer / Interface)',category:'gear',image:'/images/rodecaster-pro-ii.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 3 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 4 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'USB audio interface out',types:['USB']},{name:'Main TRS output',types:['TRS','TS']}]},
+ {id:'rodecaster',name:'RØDECaster Pro II (Mixer / Interface)',category:'gear',image:'/images/rodecaster-pro-ii.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 3 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 4 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'USB-C 1 (computer)',types:['USB']},{name:'Main Out L (1/4")',types:['TRS','TS']},{name:'Main Out R (1/4")',types:['TRS','TS']},{name:'USB-C 2 (computer or phone)',types:['USB']}]},
  {id:'laptop',name:'Laptop',category:'destination',image:'/images/laptop-card.png',inputs:[{name:'USB input',types:['USB']}],outputs:[]},
  {id:'speaker',name:'PA Speakers',category:'destination',image:'/images/pa-system-card.png',inputs:[{name:'Line input',types:['TRS','RCA']}],outputs:[]},
  {id:'monitors',name:'Studio Monitors',category:'destination',image:'/images/studio-monitors-card.png',inputs:[{name:'Line input',types:['TRS','RCA']}],outputs:[]}
@@ -60,6 +60,11 @@ function upgradeLegacyBuiltins(gear){return gear.map(item=>{
  if(item.id==='rodecaster'&&next.inputs.length===3&&next.inputs[2].name==='Line input'&&next.inputs[2].types.join(',')==='TRS'){
    next.inputs[2]={name:'Combo input 3 (mic / line / instrument)',types:['XLR','TRS','TS']};
    next.inputs.push({name:'Combo input 4 (mic / line / instrument)',types:['XLR','TRS','TS']});
+ }
+ // V11.4: RØDECaster Pro II has two USB-C ports and two separate balanced 1/4" main outputs (L and R).
+ // Old stock ports keep their positions (0 = USB, 1 = main) so saved answer keys still match; new ports are appended.
+ if(item.id==='rodecaster'&&next.outputs.length===2&&next.outputs[0].name==='USB audio interface out'&&next.outputs[1].name==='Main TRS output'){
+  next.outputs=[{name:'USB-C 1 (computer)',types:['USB']},{name:'Main Out L (1/4")',types:['TRS','TS']},{name:'Main Out R (1/4")',types:['TRS','TS']},{name:'USB-C 2 (computer or phone)',types:['USB']}];
  }
  return next;
 })}
@@ -146,7 +151,7 @@ function validateStudentWires(nodes,edges,catalog){
 
 function checkEdges(a,edges,catalog){return diagnoseEdges(a,edges,catalog)===null;}
 
-const sanitizeAssignment=a=>({id:a.id,title:a.title,instructions:a.instructions,published:!!a.published,allowed:a.allowed,cables:a.cables,nodes:a.nodes,grading:gradingFor(a)});
+const sanitizeAssignment=a=>({id:a.id,title:a.title,instructions:a.instructions,published:!!a.published,allowed:a.allowed,cables:a.cables,grading:gradingFor(a)}); // V11.4: never send the teacher exemplar layout (a.nodes) to students
 const CLASS_PERIODS=['6A','7A','8A','8B'];
 const validStudent=(firstName,classPeriod)=>typeof firstName==='string'&&firstName.trim().length>=1&&firstName.trim().length<=32&&/^[\p{L}][\p{L}\p{M}'’ -]*$/u.test(firstName.trim())&&CLASS_PERIODS.includes(classPeriod);
 const allowedOrigin=(req)=>new URL(req.url).origin;

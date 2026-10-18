@@ -15,7 +15,7 @@ This is the modeled classroom equipment catalog, **not** a guarantee of every ha
 | USB-C Audio Adapter | USB-C | 3.5mm analog output | Stereo 3.5mm TRS to *two* 1/4-inch TS is typical for dual mono mixer line inputs; TRS at each mixer jack can still make contact depending on cabling, hardware |
 | Audio Interface | 2 combo XLR / TRS / TS | TRS L/R, USB | XLR microphone; TRS balanced mono line; TS high-Z instrument on suitably configured inputs; L/R TRS is a pair of balanced outputs, not stereo on one cable |
 | Audio Mixer | 2 XLR mic, 2 line ports supporting TRS/TS/RCA/hybrid in simplified simulator | TRS main | Physical mixer may not accept RCA or hybrid through one socket. Verify exact mixer; line input is not mic preamp input |
-| RØDECaster Pro II | 4 combo XLR / TRS / TS | USB, TRS monitor outputs | Acts as mixer and computer audio interface. USB bidirectional in real life, model simplified; 1/4-inch monitor outs L/R are separate ports |
+| RØDECaster Pro II | 4 combo XLR / TRS / TS | USB-C 1, USB-C 2, Main Out L and Main Out R (two separate balanced 1/4-inch jacks) | V11.4: matches the real two USB-C ports and two main line outputs. The four headphone outputs are not modeled. USB audio is two-way in real life; the model is simplified. |
 | Laptop | USB | None | In reality laptop also sends USB audio *to* compatible audio devices (host role); lab shows only USB destination |
 | PA Speakers | TRS or RCA modeled | None | Many powered speakers have XLR/TRS combo inputs; unpowered speakers require amplifier; stereo has distinct L/R |
 | Studio Monitors | TRS or RCA modeled | None | Model as powered monitor(s) with separate L/R line inputs |
