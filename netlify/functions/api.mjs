@@ -26,7 +26,7 @@ const baseCatalog=[
  {id:'mic',name:'Handheld Microphone',category:'source',image:'/images/handheld-mic.svg',inputs:[{name:'Sound in',types:['ACOUSTIC']}],outputs:[{name:'XLR out',types:['XLR']}]},
  {id:'condenser',name:'Condenser Microphone',category:'source',image:'/images/condenser-mic.png',inputs:[{name:'Sound in',types:['ACOUSTIC']}],outputs:[{name:'XLR out',types:['XLR']}]},
  {id:'wirelessMic',name:'Wireless Microphone',category:'source',image:'/images/dji-wireless-mic.png',inputs:[{name:'Sound in',types:['ACOUSTIC']}],outputs:[{name:'Wireless transmitter',types:['WIRELESS']}]},
- {id:'wirelessRx',name:'Wireless Receiver (XLR out)',category:'gear',image:'/images/dji-wireless-receiver.png',inputs:[{name:'Wireless receiver',types:['WIRELESS']}],outputs:[{name:'XLR output',types:['XLR']}]},
+ {id:'wirelessRx',name:'Wireless Receiver (1/8" out)',category:'gear',image:'/images/dji-wireless-receiver.png',inputs:[{name:'Wireless receiver',types:['WIRELESS']}],outputs:[{name:'1/8" (3.5mm) output',types:['MINI_TRS']}]},
  {id:'guitar',name:'Electric Guitar',category:'source',image:'/images/electric-guitar-card.png',inputs:[],outputs:[{name:'Instrument output',types:['TS']}]},
  {id:'dj',name:'DJ Source',category:'source',image:'/images/dj-flx4-card.jpg',inputs:DJ_IN,outputs:DJ_OUT},
  {id:'ipad',name:'iPad',category:'source',image:'/images/ipad-card.png',inputs:[],outputs:[{name:'USB-C audio out',types:['USB']}]},
@@ -46,6 +46,7 @@ const baseCables=[
  {id:'TS',name:'1/4-inch TS',image:'/images/ts-cable-card.png',color:'#ffb76c'},
  {id:'USB',name:'USB Cable',image:'/images/usb-cable-card.png',color:'#c29afc'},
  {id:'HYBRID',name:'1/8-inch TRS to stereo 1/4-inch',image:'/images/hybrid-cable-card.png',color:'#ecdf75'},
+ {id:'MINI_TRS',name:'1/8-inch TRS to 1/4-inch TRS',image:'/images/eighth-to-quarter-cable-card.png',color:'#8fe36b'},
  {id:'RCA',name:'RCA Cable',image:'/images/rca-cable-card.png',color:'#ff8c9c'}
 ];
 const defaultAssignment={grading:gradingDefaults,id:'demo',title:'Voice → Mic → Interface → Mixer → PA',instructions:'Build a complete signal chain. Select each gold output and blue input, then choose the correct cable. Click Check when finished.',published:true,allowed:['voice','mic','interface','mixer','speaker'],cables:baseCables.map(x=>x.id),nodes:[{id:'n1',type:'voice',x:20,y:50},{id:'n2',type:'mic',x:205,y:50},{id:'n3',type:'interface',x:390,y:50},{id:'n4',type:'mixer',x:575,y:50},{id:'n5',type:'speaker',x:760,y:250}],key:[{from:'n1',fi:0,to:'n2',ti:0,cable:'ACOUSTIC'},{from:'n2',fi:0,to:'n3',ti:0,cable:'XLR'},{from:'n3',fi:0,to:'n4',ti:2,cable:'TRS'},{from:'n4',fi:0,to:'n5',ti:0,cable:'TRS'}]};
@@ -133,8 +134,19 @@ function upgradeClassroomGear(gear){return gear.map(item=>{
   return {...item,image:'/images/dj-flx4-card.jpg',inputs:clonePorts(DJ_IN),outputs:clonePorts(DJ_OUT)};
  return item;
 })}
+// V11.7: the DJI wireless receiver output is a 1/8" (3.5mm) jack, not XLR. It needs the 1/8" TRS to 1/4" TRS cable
+// (MINI_TRS). Every stock 1/4" input that takes TRS (interface, mixer, RØDECaster, PA, studio monitors) also takes MINI_TRS.
+const MINI_TRS_CARDS=['interface','mixer','rodecaster','speaker','monitors'];
+function upgradeMiniTrs(gear){return gear.map(item=>{
+ if(item.id==='wirelessRx'&&names(item.outputs)==='XLR output'&&item.outputs[0].types.join(',')==='XLR'){
+  return {...item,name:item.name==='Wireless Receiver (XLR out)'?'Wireless Receiver (1/8" out)':item.name,outputs:[{name:'1/8" (3.5mm) output',types:['MINI_TRS']}]};
+ }
+ if(MINI_TRS_CARDS.includes(item.id))return {...item,inputs:(item.inputs||[]).map(p=>p.types.includes('TRS')&&!p.types.includes('MINI_TRS')?{...p,types:[...p.types,'MINI_TRS']}:p)};
+ return item;
+})}
+function upgradeCables(cables){if(cables.some(c=>c.id==='MINI_TRS'))return cables;const add=baseCables.find(c=>c.id==='MINI_TRS');const i=cables.findIndex(c=>c.id==='HYBRID');const next=[...cables];next.splice(i>=0?i+1:next.length,0,{...add});return next}
 function applyDefaultPortImages(gear){return gear.map(item=>{const d=defaultPortImages[item.id];if(!d)return item;const add=(ports,map)=>(ports||[]).map(p=>p.image===undefined&&map[p.name]?{...p,image:map[p.name]}:p);return {...item,inputs:add(item.inputs,d.inputs),outputs:add(item.outputs,d.outputs)}})}
-async function loadCatalog(){return {gear:applyDefaultPortImages(upgradeClassroomGear(upgradeColumnPA(upgradeStereoPorts(upgradeLegacyBuiltins(normalizeCatalog(await catalogStore().get('gear',{type:'json'}))))))),cables:normalizeCables(await catalogStore().get('cables',{type:'json'}))}}
+async function loadCatalog(){return {gear:applyDefaultPortImages(upgradeMiniTrs(upgradeClassroomGear(upgradeColumnPA(upgradeStereoPorts(upgradeLegacyBuiltins(normalizeCatalog(await catalogStore().get('gear',{type:'json'})))))))),cables:upgradeCables(normalizeCables(await catalogStore().get('cables',{type:'json'})))}}
 async function getAssignment(id){return id==='demo'?(await assignmentStore().get('item_demo',{type:'json'})||defaultAssignment):await assignmentStore().get('item_'+id,{type:'json'});}
 const jsonSize=async req=>{const s=await req.text();if(s.length>250000)throw new Error('Request too large');return JSON.parse(s)};
 function sessionSecret(){return process.env.MONOIZE_SESSION_SECRET||''}

@@ -1,3 +1,20 @@
+# Monoize V11.7 — Wireless receiver 1/8" output + new cable
+
+Pushed directly to GitHub (no manual upload needed). Includes everything from V11.6 (below).
+
+Changed files: `netlify/functions/api.mjs`, `AUDIO_PORT_AUDIT.md`, `README_START_HERE.md`, NEW `public/images/eighth-to-quarter-cable-card.png`.
+
+What changed:
+1. **New cable: 1/8-inch TRS to 1/4-inch TRS** (one 1/8" plug to one 1/4" plug). Added to the cable library automatically. Students see the picture only, as with every cable.
+2. **Wireless Receiver output fixed.** It is now a 1/8" (3.5mm) output that takes the new cable, not XLR. The card is renamed "Wireless Receiver (1/8" out)" (only if it still had the old name).
+3. Every 1/4" input that takes TRS (Audio Interface, Audio Mixer, RØDECaster, PA, Studio Monitors) now also accepts the new cable.
+4. **Existing assignments do not offer the new cable yet.** In Teacher Studio, open any assignment that uses the wireless mic, tick the new cable under "Cables available to students", rebuild the receiver wire in the exemplar with the new cable, and Save. New assignments include it automatically.
+5. An answer key that wired the receiver with XLR must be re-saved.
+
+Live test: Teacher Studio > Equipment & Cable Library > Cable: confirm "1/8-inch TRS to 1/4-inch TRS" is listed. Open Wireless Receiver: output is 1/8" (3.5mm) output. Build Wireless Mic → Receiver → Mixer Ch 5 with the new cable.
+
+---
+
 # Monoize V11.6 — Port pictures + real classroom gear
 
 Small update. Needs V11.5 installed.

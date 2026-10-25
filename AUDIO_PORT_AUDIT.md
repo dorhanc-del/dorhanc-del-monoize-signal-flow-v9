@@ -8,7 +8,7 @@ This is the modeled classroom equipment catalog, **not** a guarantee of every ha
 | Handheld Mic | Acoustic sound | XLR | Assumes wired dynamic microphone |
 | Condenser Mic | Acoustic sound | XLR | Usually requires phantom power (not simulated) |
 | Wireless Mic | Acoustic sound | Wireless signal | Transmitter and receiver must be paired; technology specific |
-| Wireless Receiver | Wireless signal | XLR | Only valid if the **actual receiver** has XLR output (e.g. appropriate pro receiver). A DJI-style receiver often uses 3.5mm output, so don't infer XLR from a photo |
+| Wireless Receiver (DJI, V11.7) | Wireless receiver (WIRELESS) | 1/8" (3.5mm) output — needs the 1/8" TRS to 1/4" TRS cable | Not XLR. Every stock 1/4" TRS input also accepts the 1/8" TRS to 1/4" TRS cable. |
 | Electric Guitar | None | 1/4-inch TS | Instrument-level, usually high impedance |
 | DJ Source (Pioneer DDJ-FLX4, V11.6) | Mic input (1/4" unbalanced) | Master Out L/R (RCA) | USB-C (computer/power) not modeled. |
 | iPad | None | USB-C | A compatible USB-C DAC/adapter is needed for analog audio |
