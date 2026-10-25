@@ -43,3 +43,24 @@ body{background:#070707}
 .disconnectWire:hover{background:#68333d}
 
 .wire{pointer-events:auto}
+
+/* V11.6 port pictures */
+.porthint.hasImage{white-space:normal;min-width:0;width:184px;padding:6px}
+.porthint img{display:block;width:170px;height:118px;object-fit:contain;background:#fff;border-radius:5px;margin-bottom:5px}
+.port.withPhoto::after{content:'';position:absolute;right:-3px;top:-3px;width:7px;height:7px;border-radius:50%;background:#fff;border:1px solid #101827;pointer-events:none}
+.portPhotos{display:flex;align-items:stretch;justify-content:center;gap:10px;flex-wrap:wrap}
+.portPhoto{display:flex;flex-direction:column;align-items:center;gap:3px;background:#2a2a2e;border:1px solid #5d5d60;border-radius:10px;padding:8px;width:210px;text-align:center}
+.portPhoto small{font-weight:900;letter-spacing:.06em;color:var(--gold)}
+.portPhoto img{width:190px;height:120px;object-fit:contain;background:#fff;border-radius:6px}
+.portPhoto .noPortPhoto{display:flex;align-items:center;justify-content:center;width:190px;height:120px;background:#3a3a3f;border-radius:6px;color:#bbb;font-size:12px}
+.portPhoto b{font-size:12px}.portPhoto span{font-size:12px}
+.portArrow{align-self:center;font-size:28px;font-weight:900}
+.portPhotoList{display:grid;gap:8px;margin:8px 0 14px}
+.portPhotoRow{display:grid;grid-template-columns:110px 1fr auto;gap:10px;align-items:center;background:#111e30;border:1px solid #33465f;border-radius:9px;padding:7px}
+.portPhotoThumb{width:110px;height:72px;background:#e9eef4;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#55657a;font-size:11px;overflow:hidden}
+.portPhotoThumb img{width:100%;height:100%;object-fit:contain}
+.portPhotoInfo{display:flex;flex-direction:column;gap:2px;font-size:13px}
+.portPhotoInfo .inLabel{color:var(--cyan)}.portPhotoInfo .outLabel{color:var(--gold)}
+.portPhotoActions{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end}
+.portPhotoActions input[type=file]{max-width:210px}
+@media (max-width:760px){.portPhotoRow{grid-template-columns:80px 1fr}.portPhotoThumb{width:80px;height:56px}.portPhotoActions{grid-column:1/-1;justify-content:flex-start}}

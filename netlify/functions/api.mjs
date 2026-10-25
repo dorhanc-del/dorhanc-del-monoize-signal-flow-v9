@@ -14,6 +14,13 @@ const studentKey=(id,firstName,classPeriod)=>'a_'+createHmac('sha256',process.en
 const JSON_HEADERS={'content-type':'application/json; charset=utf-8','cache-control':'no-store'};
 const resp=(body,status=200,headers={})=>new Response(JSON.stringify(body),{status,headers:{...JSON_HEADERS,...headers}});
 const error=(message,status=400)=>resp({error:message},status);
+// V11.6: Ace's real classroom gear. Port positions 0..n of the V11.5 stock cards keep their meaning
+// (same jack type, same side), so saved answer keys still grade; extra real-world ports are appended after them.
+const MIX_IN=[{name:'Ch 1 Mic/Line (combo)',types:['XLR','TRS','TS']},{name:'Ch 2 Mic/Line (combo)',types:['XLR','TRS','TS']},{name:'Ch 5 Line L (1/4")',types:['TRS','TS','HYBRID']},{name:'Ch 6 Line R (1/4")',types:['TRS','TS','HYBRID']},{name:'RCA 5 L (left)',types:['RCA']},{name:'RCA 6 R (right)',types:['RCA']},{name:'Ch 3 Mic/Line (combo)',types:['XLR','TRS','TS']},{name:'Ch 4 Mic/Line (combo)',types:['XLR','TRS','TS']},{name:'Ch 7 Line L (1/4")',types:['TRS','TS','HYBRID']},{name:'Ch 8 Line R (1/4")',types:['TRS','TS','HYBRID']}];
+const MIX_OUT=[{name:'Stereo Out L (1/4")',types:['TRS','TS']},{name:'Stereo Out R (1/4")',types:['TRS','TS']},{name:'Stereo Out L (XLR)',types:['XLR']},{name:'Stereo Out R (XLR)',types:['XLR']},{name:'Monitor Out L',types:['TRS','TS']},{name:'Monitor Out R',types:['TRS','TS']}];
+const MON_IN=[{name:'TRS input L (1/4")',types:['TRS','TS']},{name:'TRS input R (1/4")',types:['TRS','TS']},{name:'RCA in L (left)',types:['RCA']},{name:'RCA in R (right)',types:['RCA']}];
+const DJ_IN=[{name:'Mic input (1/4")',types:['TRS','TS']}];
+const DJ_OUT=[{name:'Master Out L (RCA)',types:['RCA']},{name:'Master Out R (RCA)',types:['RCA']}];
 const baseCatalog=[
  {id:'voice',name:'Voice',category:'source',image:'/images/voice.svg',inputs:[],outputs:[{name:'Acoustic sound',types:['ACOUSTIC']}]},
  {id:'mic',name:'Handheld Microphone',category:'source',image:'/images/handheld-mic.svg',inputs:[{name:'Sound in',types:['ACOUSTIC']}],outputs:[{name:'XLR out',types:['XLR']}]},
@@ -21,15 +28,15 @@ const baseCatalog=[
  {id:'wirelessMic',name:'Wireless Microphone',category:'source',image:'/images/dji-wireless-mic.png',inputs:[{name:'Sound in',types:['ACOUSTIC']}],outputs:[{name:'Wireless transmitter',types:['WIRELESS']}]},
  {id:'wirelessRx',name:'Wireless Receiver (XLR out)',category:'gear',image:'/images/dji-wireless-receiver.png',inputs:[{name:'Wireless receiver',types:['WIRELESS']}],outputs:[{name:'XLR output',types:['XLR']}]},
  {id:'guitar',name:'Electric Guitar',category:'source',image:'/images/electric-guitar-card.png',inputs:[],outputs:[{name:'Instrument output',types:['TS']}]},
- {id:'dj',name:'DJ Source',category:'source',image:'/images/dj-source-card.png',inputs:[],outputs:[{name:'RCA out L (left)',types:['RCA']},{name:'RCA out R (right)',types:['RCA']}]},
+ {id:'dj',name:'DJ Source',category:'source',image:'/images/dj-flx4-card.jpg',inputs:DJ_IN,outputs:DJ_OUT},
  {id:'ipad',name:'iPad',category:'source',image:'/images/ipad-card.png',inputs:[],outputs:[{name:'USB-C audio out',types:['USB']}]},
  {id:'adapter',name:'USB-C Audio Adapter',category:'gear',image:'/images/usbc-adapter-card.png',inputs:[{name:'USB-C input',types:['USB']}],outputs:[{name:'3.5mm audio output',types:['HYBRID']}]},
  {id:'interface',name:'Audio Interface',category:'gear',image:'/images/audio-interface.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'Line Out L (left)',types:['TRS','TS']},{name:'USB output',types:['USB']},{name:'Line Out R (right)',types:['TRS','TS']}]},
- {id:'mixer',name:'Audio Mixer',category:'gear',image:'/images/mixer.svg',inputs:[{name:'Mic 1',types:['XLR']},{name:'Mic 2',types:['XLR']},{name:'Line A (left)',types:['TRS','TS','HYBRID']},{name:'Line B (right)',types:['TRS','TS','HYBRID']},{name:'RCA in L (left)',types:['RCA']},{name:'RCA in R (right)',types:['RCA']}],outputs:[{name:'Main Out L (left)',types:['TRS','TS']},{name:'Main Out R (right)',types:['TRS','TS']}]},
+ {id:'mixer',name:'Audio Mixer',category:'gear',image:'/images/mixer-mg10xu-card.jpg',inputs:MIX_IN,outputs:MIX_OUT},
  {id:'rodecaster',name:'RØDECaster Pro II (Mixer / Interface)',category:'gear',image:'/images/rodecaster-pro-ii.png',inputs:[{name:'Combo input 1 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 2 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 3 (mic / line / instrument)',types:['XLR','TRS','TS']},{name:'Combo input 4 (mic / line / instrument)',types:['XLR','TRS','TS']}],outputs:[{name:'USB-C 1 (computer)',types:['USB']},{name:'Main Out L (left)',types:['TRS','TS']},{name:'Main Out R (right)',types:['TRS','TS']},{name:'USB-C 2 (computer or phone)',types:['USB']}]},
  {id:'laptop',name:'Laptop',category:'destination',image:'/images/laptop-card.png',inputs:[{name:'USB input',types:['USB']}],outputs:[]},
- {id:'speaker',name:'PA Speakers',category:'destination',image:'/images/pa-system-card.png',inputs:[{name:'Left speaker input',types:['XLR','TRS','TS']},{name:'Right speaker input',types:['XLR','TRS','TS']}],outputs:[]},
- {id:'monitors',name:'Studio Monitors',category:'destination',image:'/images/studio-monitors-card.png',inputs:[{name:'Left speaker input',types:['XLR','TRS','TS']},{name:'Right speaker input',types:['XLR','TRS','TS']},{name:'RCA in L (left)',types:['RCA']},{name:'RCA in R (right)',types:['RCA']}],outputs:[]}
+ {id:'speaker',name:'PA Speakers',category:'destination',image:'/images/pa-column-system-card.png',inputs:[{name:'Input 1 (combo)',types:['XLR','TRS','TS']},{name:'Input 2 (combo)',types:['XLR','TRS','TS']},{name:'Input 3 (combo)',types:['XLR','TRS','TS']},{name:'Input 4 (combo)',types:['XLR','TRS','TS']}],outputs:[{name:'Monitor 1 out',types:['XLR']},{name:'Monitor 2 out',types:['XLR']},{name:'System Out',types:['XLR']}]},
+ {id:'monitors',name:'Studio Monitors',category:'destination',image:'/images/monitors-cr35-card.jpg',inputs:MON_IN,outputs:[]}
 ];
 const baseCables=[
  {id:'ACOUSTIC',name:'Acoustic sound',image:'',color:'#cbd5e1'},
@@ -90,7 +97,44 @@ function upgradeStereoPorts(gear){return gear.map(item=>{
  }
  return next;
 })}
-async function loadCatalog(){return {gear:upgradeStereoPorts(upgradeLegacyBuiltins(normalizeCatalog(await catalogStore().get('gear',{type:'json'})))),cables:normalizeCables(await catalogStore().get('cables',{type:'json'}))}}
+// V11.6: built-in port pictures for stock ports. Only added when a port has no image setting at all;
+// a picture the teacher uploaded or removed (image:'') is never overwritten. Matched by stock port name.
+const P='/images/ports/';
+const defaultPortImages={
+ interface:{inputs:{'Combo input 1 (mic / line / instrument)':P+'interface-combo-input-1.png','Combo input 2 (mic / line / instrument)':P+'interface-combo-input-2.png'},outputs:{'Line Out L (left)':P+'interface-line-out-left.png','USB output':P+'interface-usb-output.png','Line Out R (right)':P+'interface-line-out-right.png'}},
+ speaker:{inputs:{'Input 1 (combo)':P+'pa-input-1.png','Input 2 (combo)':P+'pa-input-2.png','Input 3 (combo)':P+'pa-input-3.png','Input 4 (combo)':P+'pa-input-4.png'},outputs:{'Monitor 1 out':P+'pa-monitor-1.png','Monitor 2 out':P+'pa-monitor-2.png','System Out':P+'pa-system-out.png'}},
+ mixer:{inputs:{'Ch 1 Mic/Line (combo)':P+'mixer-ch1-combo.png','Ch 2 Mic/Line (combo)':P+'mixer-ch2-combo.png','Ch 3 Mic/Line (combo)':P+'mixer-ch3-combo.png','Ch 4 Mic/Line (combo)':P+'mixer-ch4-combo.png','Ch 5 Line L (1/4")':P+'mixer-ch5-line-left.png','Ch 6 Line R (1/4")':P+'mixer-ch6-line-right.png','Ch 7 Line L (1/4")':P+'mixer-ch7-line-left.png','Ch 8 Line R (1/4")':P+'mixer-ch8-line-right.png','RCA 5 L (left)':P+'mixer-rca5-left.png','RCA 6 R (right)':P+'mixer-rca6-right.png'},outputs:{'Stereo Out L (1/4")':P+'mixer-stereo-out-left-quarter.png','Stereo Out R (1/4")':P+'mixer-stereo-out-right-quarter.png','Stereo Out L (XLR)':P+'mixer-stereo-out-left-xlr.png','Stereo Out R (XLR)':P+'mixer-stereo-out-right-xlr.png','Monitor Out L':P+'mixer-monitor-out-left.png','Monitor Out R':P+'mixer-monitor-out-right.png'}},
+ monitors:{inputs:{'TRS input L (1/4")':P+'monitors-trs-in-left.png','TRS input R (1/4")':P+'monitors-trs-in-right.png','RCA in L (left)':P+'monitors-rca-in-left.png','RCA in R (right)':P+'monitors-rca-in-right.png'},outputs:{}},
+ dj:{inputs:{'Mic input (1/4")':P+'dj-mic-in.png'},outputs:{'Master Out L (RCA)':P+'dj-master-out-left.png','Master Out R (RCA)':P+'dj-master-out-right.png'}},
+ rodecaster:{inputs:{'Combo input 1 (mic / line / instrument)':P+'rodecaster-combo-input-1.png','Combo input 2 (mic / line / instrument)':P+'rodecaster-combo-input-2.png','Combo input 3 (mic / line / instrument)':P+'rodecaster-combo-input-3.png','Combo input 4 (mic / line / instrument)':P+'rodecaster-combo-input-4.png'},outputs:{'USB-C 1 (computer)':P+'rodecaster-usb-c-1.png','Main Out L (left)':P+'rodecaster-main-out-left.png','Main Out R (right)':P+'rodecaster-main-out-right.png','USB-C 2 (computer or phone)':P+'rodecaster-usb-c-2.png'}}
+};
+// V11.6: the PA Speakers card is now Ace's LD Systems MAUI 28 G3 MIX column PA (one unit, 4 combo inputs,
+// 2 monitor outs, system out). Converts the V11.5 stock card once: old input 0/1 (Left/Right speaker input) become
+// Input 1/Input 2 at the same positions, so saved answer keys still grade (Main Out L -> Input 1, Main Out R -> Input 2).
+// Footswitch, SysLink and Bluetooth are not modeled. A card the teacher already customized is left alone.
+const PA_COMBO=['XLR','TRS','TS'];
+function upgradeColumnPA(gear){return gear.map(item=>{
+ if(item.id!=='speaker')return item;
+ if((item.inputs||[]).map(p=>p.name).join('|')!=='Left speaker input|Right speaker input'||(item.outputs||[]).length)return item;
+ return {...item,image:'/images/pa-column-system-card.png',inputs:[1,2,3,4].map(n=>({name:'Input '+n+' (combo)',types:[...PA_COMBO]})),outputs:[{name:'Monitor 1 out',types:['XLR']},{name:'Monitor 2 out',types:['XLR']},{name:'System Out',types:['XLR']}]};
+})}
+// V11.6: convert the V11.5 stock cards once (only when their ports are still exactly the stock list).
+// Mixer = Yamaha MG10XU: old Mic 1/2 -> Ch 1/2 combo, Line A/B -> Ch 5/6 line, RCA in L/R -> RCA 5/6, Main Out L/R -> Stereo Out L/R (1/4").
+// Studio Monitors = Mackie CR3.5: Left/Right speaker input -> TRS input L/R (1/4" only; the CR3.5 has no XLR), RCA in L/R unchanged.
+// DJ Source = Pioneer DDJ-FLX4: RCA out L/R -> Master Out L/R (RCA); 1/4" mic input added.
+const names=l=>(l||[]).map(p=>p.name).join('|');
+const clonePorts=l=>l.map(p=>({...p,types:[...p.types]}));
+function upgradeClassroomGear(gear){return gear.map(item=>{
+ if(item.id==='mixer'&&names(item.inputs)==='Mic 1|Mic 2|Line A (left)|Line B (right)|RCA in L (left)|RCA in R (right)'&&names(item.outputs)==='Main Out L (left)|Main Out R (right)')
+  return {...item,image:'/images/mixer-mg10xu-card.jpg',inputs:clonePorts(MIX_IN),outputs:clonePorts(MIX_OUT)};
+ if(item.id==='monitors'&&names(item.inputs)==='Left speaker input|Right speaker input|RCA in L (left)|RCA in R (right)'&&!(item.outputs||[]).length)
+  return {...item,image:'/images/monitors-cr35-card.jpg',inputs:clonePorts(MON_IN),outputs:[]};
+ if(item.id==='dj'&&!(item.inputs||[]).length&&names(item.outputs)==='RCA out L (left)|RCA out R (right)')
+  return {...item,image:'/images/dj-flx4-card.jpg',inputs:clonePorts(DJ_IN),outputs:clonePorts(DJ_OUT)};
+ return item;
+})}
+function applyDefaultPortImages(gear){return gear.map(item=>{const d=defaultPortImages[item.id];if(!d)return item;const add=(ports,map)=>(ports||[]).map(p=>p.image===undefined&&map[p.name]?{...p,image:map[p.name]}:p);return {...item,inputs:add(item.inputs,d.inputs),outputs:add(item.outputs,d.outputs)}})}
+async function loadCatalog(){return {gear:applyDefaultPortImages(upgradeClassroomGear(upgradeColumnPA(upgradeStereoPorts(upgradeLegacyBuiltins(normalizeCatalog(await catalogStore().get('gear',{type:'json'}))))))),cables:normalizeCables(await catalogStore().get('cables',{type:'json'}))}}
 async function getAssignment(id){return id==='demo'?(await assignmentStore().get('item_demo',{type:'json'})||defaultAssignment):await assignmentStore().get('item_'+id,{type:'json'});}
 const jsonSize=async req=>{const s=await req.text();if(s.length>250000)throw new Error('Request too large');return JSON.parse(s)};
 function sessionSecret(){return process.env.MONOIZE_SESSION_SECRET||''}
@@ -298,7 +342,10 @@ export default async function handler(req){
    if(typeof item.image!=='string'||item.image.length>500||!(item.image.startsWith('/images/')||item.image.startsWith('/api/image?id=')||item.image===''))return error('Invalid image path');
    if(type==='gear'){
      item.category=['source','gear','destination'].includes(item.category)?item.category:'gear';
-     for(const arr of [item.inputs,item.outputs]){if(!Array.isArray(arr)||arr.length>8)return error('Invalid ports');for(const port of arr){if(!port||typeof port.name!=='string'||port.name.length>70||!Array.isArray(port.types)||!port.types.length||port.types.some(t=>!cat.cables.some(c=>c.id===t)))return error('Invalid port connection types')}}
+     for(const arr of [item.inputs,item.outputs]){if(!Array.isArray(arr)||arr.length>12)return error('Invalid ports (maximum 12 per side)');for(const port of arr){if(!port||typeof port.name!=='string'||port.name.length>70||!Array.isArray(port.types)||!port.types.length||port.types.some(t=>!cat.cables.some(c=>c.id===t)))return error('Invalid port connection types')}}
+     // V11.6: optional port picture. Same image rules as card images; ports are rebuilt so no other fields are stored.
+     for(const arr of [item.inputs,item.outputs])for(const port of arr){if(port.image!==undefined&&port.image!==''&&(typeof port.image!=='string'||port.image.length>500||!(port.image.startsWith('/images/')||port.image.startsWith('/api/image?id='))))return error('Invalid port picture path')}
+     const cleanPort=p=>({name:p.name,types:[...p.types],...(typeof p.image==='string'?{image:p.image}:{})}); // image:'' = teacher removed the pictureitem.inputs=item.inputs.map(cleanPort);item.outputs=item.outputs.map(cleanPort);
    }else {if(!/^#[a-fA-F0-9]{6}$/.test(item.color))return error('Invalid cable color')}
    const list=cat[type];const i=list.findIndex(x=>x.id===item.id);if(i>=0)list[i]=item;else list.push(item);await catalogStore().setJSON(type,list);return resp({ok:true,item});
   }
