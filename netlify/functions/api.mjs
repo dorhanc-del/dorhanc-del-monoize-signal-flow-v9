@@ -3,9 +3,10 @@ import { createHmac, randomUUID, timingSafeEqual } from 'node:crypto';
 
 const catalogStore=()=>getStore('monoize-catalog');
 const assignmentStore=()=>getStore('monoize-assignments');
-const submissionStore=()=>getStore('monoize-results');
+// V11.8: strong consistency so attempt counts and grades are never read stale right after a submission.
+const submissionStore=()=>getStore({name:'monoize-results',consistency:'strong'});
 const imageStore=()=>getStore('monoize-images');
-const attemptsStore=()=>getStore('monoize-attempts');
+const attemptsStore=()=>getStore({name:'monoize-attempts',consistency:'strong'});
 const gradingDefaults={mode:'assessment',maxAttempts:2,penalty:10,feedback:'general',showScore:true,lockAfter:true};
 const gradingFor=a=>{const r={...gradingDefaults,...(a.grading||{})};r.mode=r.mode==='practice'?'practice':'assessment';r.maxAttempts=[1,2,3,5].includes(Number(r.maxAttempts))?Number(r.maxAttempts):2;r.penalty=[0,5,10,15,20,25].includes(Number(r.penalty))?Number(r.penalty):10;r.feedback=['general','hints','detailed'].includes(r.feedback)?r.feedback:'general';r.showScore=!!r.showScore;r.lockAfter=!!r.lockAfter;return r};
 const denverDay=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'America/Denver',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
@@ -280,7 +281,7 @@ export default async function handler(req){
    const score=Math.max(50,calculatedScore); // DPS-equity configured floor on recorded grades; raw score retained
    const count=prev.count+1,complete=correct===expected.size&&actual.size===expected.size&&mapped.matchedDevices===a.nodes.length&&mapped.studentCount===a.nodes.length;
    const locked=g.mode==='assessment'&&g.lockAfter&&count>=g.maxAttempts;
-   const record={id:randomUUID(),assignment:a.id,title:a.title,firstName:firstName.trim(),classPeriod,score,calculatedScore,gradeFloor:50,gradeFloorApplied:calculatedScore<50,rawScore,penaltyApplied:g.mode==='practice'?0:prev.count*g.penalty,attempt:count,gradingDay:denverDay(),mode:g.mode,complete,correct,total:expected.size,equipmentCorrect:mapped.matchedDevices,equipmentTotal:a.nodes.length,submittedAt:new Date().toISOString()};
+   const record={id:randomUUID(),assignment:a.id,title:a.title,firstName:firstName.trim(),classPeriod,score,calculatedScore,gradeFloor:50,gradeFloorApplied:calculatedScore<50,rawScore,penaltyApplied:g.mode==='practice'?0:prev.count*g.penalty,attempt:count,gradingDay:denverDay(),mode:g.mode,complete,correct,total:expected.size,equipmentCorrect:mapped.matchedDevices,equipmentTotal:a.nodes.length,equipmentScore:Math.round(100*equipmentAccuracy),connectionScore:Math.round(100*cableAccuracy),submittedAt:new Date().toISOString()};
    await attemptsStore().setJSON(key,{count,locked,lastScore:score,updatedAt:record.submittedAt});
    await submissionStore().setJSON('r_'+record.id,record);
    const remaining=g.mode==='practice'?null:Math.max(0,g.maxAttempts-count);
@@ -288,7 +289,7 @@ export default async function handler(req){
    let hint=general;
    if(g.feedback==='hints'&&!complete)hint+=` You have ${Math.max(0,expected.size-correct)} missing or incorrect required connection(s).`;
    if(g.feedback==='detailed'&&!complete)hint+=` ${[...actual].filter(x=>!expected.has(x)).length} submitted wire(s) do not match the answer key.`;
-   return resp({score:g.showScore?score:null,rawScore:g.showScore?rawScore:null,calculatedScore:g.showScore?calculatedScore:null,gradeFloorApplied:g.showScore?record.gradeFloorApplied:null,penaltyApplied:g.showScore?record.penaltyApplied:null,correct:g.feedback==='detailed'?correct:null,total:g.feedback==='detailed'?expected.size:null,attempt:count,remaining,locked,complete,gradingDay:denverDay(),feedback:hint,submittedAt:record.submittedAt,receipt:record.id.slice(0,8)});
+   return resp({score:g.showScore?score:null,rawScore:g.showScore?rawScore:null,equipmentScore:g.showScore?record.equipmentScore:null,connectionScore:g.showScore?record.connectionScore:null,calculatedScore:g.showScore?calculatedScore:null,gradeFloorApplied:g.showScore?record.gradeFloorApplied:null,penaltyApplied:g.showScore?record.penaltyApplied:null,correct:g.feedback==='detailed'?correct:null,total:g.feedback==='detailed'?expected.size:null,attempt:count,remaining,locked,complete,gradingDay:denverDay(),feedback:hint,submittedAt:record.submittedAt,receipt:record.id.slice(0,8)});
   }
   if(!teacherAuth(req))return error('Teacher login required',401);
   if(path==='reset-attempts'){

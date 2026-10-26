@@ -131,7 +131,7 @@ function gradeExplanation(x){
  const raw=Number(x.rawScore??x.score??0), penalty=Number(x.penaltyApplied||0);
  const preFloor=Number(x.calculatedScore??Math.max(0,raw-penalty));
  const floorApplied=x.gradeFloorApplied??(Number(x.score)===50&&preFloor<50);
- const pieces=[`Connections: ${Number(x.correct)||0}/${Number(x.total)||0}`,`Raw: ${raw}%`,`Attempt ${Number(x.attempt)||1} deduction: −${penalty}`,`After deduction: ${preFloor}%`];
+ const pieces=[...(x.equipmentTotal?[`Equipment: ${Number(x.equipmentCorrect)||0}/${Number(x.equipmentTotal)||0}`]:[]),`Connections: ${Number(x.correct)||0}/${Number(x.total)||0}`,`Raw: ${raw}%`,`Attempt ${Number(x.attempt)||1} deduction: −${penalty}`,`After deduction: ${preFloor}%`];
  if(floorApplied)pieces.push('50% equity floor applied');
  else pieces.push('No floor adjustment');
  pieces.push(`Recorded: ${x.score}%`);

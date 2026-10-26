@@ -1,3 +1,15 @@
+# Monoize V11.8 — Reliable attempt counts + clearer score
+
+Pushed directly to GitHub. Changed: `netlify/functions/api.mjs`, `public/student.js`, `public/teacher.js`, `README_START_HERE.md`.
+
+1. **Attempt counts always read fresh.** Attempts and grades now use Netlify Blobs strong consistency. Before, a read right after a submission or a Reset could return a value up to ~60 seconds old (the page could show 0/2 after attempt 1, and counts could get crossed).
+2. **Clearer score line for students:** "Score: 50% (equipment 80%, connections 25%, raw score 42%, attempt deduction 0 points, 50% minimum applied)". The old line called the raw score "connection accuracy".
+3. Teacher Studio grade explanation now also shows Equipment: correct/total for new submissions.
+
+Grading math is unchanged (30% equipment, 70% connections, −10 per earlier attempt, 50% floor).
+
+---
+
 # Monoize V11.7 — Wireless receiver 1/8" output + new cable
 
 Pushed directly to GitHub (no manual upload needed). Includes everything from V11.6 (below).
