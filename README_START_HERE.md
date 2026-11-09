@@ -1,3 +1,15 @@
+# Monoize V11.9 — Change a cable without disconnecting first
+
+Changed: `public/core.js`, `public/style.css`, `public/index.html`, `public/teacher.html`, `README_START_HERE.md`.
+
+1. **Click a cable on the canvas** (or press **Change cable** in the connections list) to open the cable picker for that connection. Choose a different cable and the connection updates in place. The two ports stay connected; only the cable changes.
+2. The cable currently in use is outlined in gold. Choosing it again changes nothing.
+3. The picker has a **Disconnect this cable** button, so a student can still remove the connection. The old list **Disconnect** button still works.
+4. Clicking a cable no longer asks "Disconnect?" first; it opens the picker instead.
+5. Changing a cable does not use an attempt. Grading, attempts, and answer keys are unchanged. Teacher Studio gets the same behavior and still checks that the cable fits both ports.
+
+---
+
 # Monoize V11.8 — Reliable attempt counts + clearer score
 
 Pushed directly to GitHub. Changed: `netlify/functions/api.mjs`, `public/student.js`, `public/teacher.js`, `README_START_HERE.md`.

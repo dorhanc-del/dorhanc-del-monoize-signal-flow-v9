@@ -64,3 +64,7 @@ body{background:#070707}
 .portPhotoActions{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end}
 .portPhotoActions input[type=file]{max-width:210px}
 @media (max-width:760px){.portPhotoRow{grid-template-columns:80px 1fr}.portPhotoThumb{width:80px;height:56px}.portPhotoActions{grid-column:1/-1;justify-content:flex-start}}
+
+.wireBtns{display:flex;gap:5px;flex-shrink:0}
+.changeWire{padding:5px 9px;white-space:nowrap;background:#1f3a4a;border-color:#62d8ef;color:white;font-weight:700}
+.changeWire:hover{background:#2a5068}
