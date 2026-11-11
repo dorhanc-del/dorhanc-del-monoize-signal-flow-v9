@@ -98,3 +98,6 @@ Unzip, then in GitHub choose **Add file > Upload files** and drag in the extract
 6. Connect a mic to that input. Confirm both port pictures show in the connection window.
 7. Remove the picture in Teacher Studio. Confirm the port goes back to text only.
 8. Submit a demo chain and confirm grading still works.
+
+## V11.10 (11/11/26)
+After a submit, the result message (score, attempt, receipt) now stays on screen. Before, the limit warning replaced it as soon as the last attempt was used, so students thought the second attempt was refused. The limit notice now appears in the status line under the Submit button. Attempts and grading unchanged.
